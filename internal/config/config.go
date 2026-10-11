@@ -9,12 +9,17 @@ import (
 
 type Config struct {
 	Environment string `validate:"required,oneof=development production test"`
-	Logging
+	Logging     Logging
+	Database    Database
 }
 
 type Logging struct {
 	Level  string `validate:"oneof=debug info warn error trace fatal panic"`
 	Pretty bool
+}
+
+type Database struct {
+	URL string `validate:"required,url"`
 }
 
 func Load(v *validator.Validate) (*Config, error) {
@@ -25,6 +30,9 @@ func Load(v *validator.Validate) (*Config, error) {
 		Logging: Logging{
 			Level:  getEnv("LOG_LEVEL"),
 			Pretty: getEnv("LOG_PRETTY") == "true",
+		},
+		Database: Database{
+			URL: getEnv("DB_URL"),
 		},
 	}
 

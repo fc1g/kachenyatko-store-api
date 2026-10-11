@@ -1,6 +1,10 @@
 package main
 
 import (
+	"context"
+	"os/signal"
+	"syscall"
+
 	"github.com/fc1g/kachenyatko-store-api/internal/app"
 	"github.com/fc1g/kachenyatko-store-api/internal/config"
 	"github.com/fc1g/kachenyatko-store-api/internal/logging"
@@ -23,6 +27,15 @@ func main() {
 		log.Fatal().Err(err).Msg("Couldn't initialize logger")
 	}
 
-	app := app.New(v, cfg, logger)
-	app.Run()
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	app, err := app.New(ctx, v, cfg, logger)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Couldn't initialize application")
+	}
+
+	<-ctx.Done()
+
+	app.Close()
 }
