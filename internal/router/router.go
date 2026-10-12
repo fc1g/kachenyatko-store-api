@@ -6,10 +6,13 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
+const maxBodyBytes = 1 << 20
+
 func New(categoryHandler *handler.CategoryHandler, toyHandler *handler.ToyHandler) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(middleware.RequestSize(maxBodyBytes))
 
 	r.Route("/categories", func(r chi.Router) {
 		r.Post("/", categoryHandler.Create)

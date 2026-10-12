@@ -1,10 +1,8 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
 
-	"github.com/fc1g/kachenyatko-store-api/internal/apperr"
 	"github.com/fc1g/kachenyatko-store-api/internal/model"
 	"github.com/fc1g/kachenyatko-store-api/internal/repository"
 	"github.com/fc1g/kachenyatko-store-api/internal/service"
@@ -25,9 +23,7 @@ func NewCategoryHandler(logger zerolog.Logger, categoryService *service.Category
 
 func (h *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var dto service.CreateCategoryInput
-	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&dto); err != nil {
-		writeError(w, h.logger, apperr.Error{Code: apperr.CodeInvalid, Message: "invalid request body"})
+	if !decodeJSON(w, r, &dto) {
 		return
 	}
 
