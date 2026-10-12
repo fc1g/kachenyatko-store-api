@@ -5,33 +5,35 @@
 package repository
 
 import (
-	"github.com/jackc/pgx/v5/pgtype"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 type Category struct {
-	ID        pgtype.UUID
+	ID        uuid.UUID
 	Name      string
 	Slug      string
-	CreatedAt pgtype.Timestamp
-	UpdatedAt pgtype.Timestamp
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 type Toy struct {
-	ID          pgtype.UUID
-	CategoryID  pgtype.UUID
+	ID          uuid.UUID
+	CategoryID  uuid.UUID
 	Name        string
 	Description string
 	Size        string
 	Materials   string
-	CreatedAt   pgtype.Timestamp
-	UpdatedAt   pgtype.Timestamp
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 type ToyImage struct {
-	ID        pgtype.UUID
-	ToyID     pgtype.UUID
+	ID        uuid.UUID
+	ToyID     uuid.UUID
 	Url       string
 	Position  int32
-	CreatedAt pgtype.Timestamp
-	UpdatedAt pgtype.Timestamp
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }

@@ -6,9 +6,9 @@ CREATE TABLE toys (
   description TEXT NOT NULL,
   size TEXT NOT NULL,
   materials TEXT NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- +goose Down
-DROP TABLE toys;
+DROP TABLE IF EXISTS toys;

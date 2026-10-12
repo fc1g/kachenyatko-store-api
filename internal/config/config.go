@@ -2,19 +2,21 @@ package config
 
 import (
 	"os"
+	"strconv"
 
-	"github.com/go-playground/validator/v10"
+	"github.com/fc1g/kachenyatko-store-api/internal/validation"
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
 	Environment string `validate:"required,oneof=development production test"`
+	Port        string `validate:"required,port"`
 	Logging     Logging
 	Database    Database
 }
 
 type Logging struct {
-	Level  string `validate:"oneof=debug info warn error trace fatal panic"`
+	Level  string `validate:"required,oneof=debug info warn error trace fatal panic"`
 	Pretty bool
 }
 
@@ -22,17 +24,20 @@ type Database struct {
 	URL string `validate:"required,url"`
 }
 
-func Load(v *validator.Validate) (*Config, error) {
+func Load(v validation.Validator) (*Config, error) {
 	_ = godotenv.Load()
 
+	logPretty, _ := strconv.ParseBool(os.Getenv("LOG_PRETTY"))
+
 	cfg := &Config{
-		Environment: getEnv("ENVIRONMENT"),
+		Environment: os.Getenv("ENVIRONMENT"),
+		Port:        os.Getenv("PORT"),
 		Logging: Logging{
-			Level:  getEnv("LOG_LEVEL"),
-			Pretty: getEnv("LOG_PRETTY") == "true",
+			Level:  os.Getenv("LOG_LEVEL"),
+			Pretty: logPretty,
 		},
 		Database: Database{
-			URL: getEnv("DB_URL"),
+			URL: os.Getenv("DB_URL"),
 		},
 	}
 
@@ -41,11 +46,4 @@ func Load(v *validator.Validate) (*Config, error) {
 	}
 
 	return cfg, nil
-}
-
-func getEnv(key string) string {
-	if value, ok := os.LookupEnv(key); ok {
-		return value
-	}
-	return ""
 }

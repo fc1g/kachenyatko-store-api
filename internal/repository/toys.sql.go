@@ -8,7 +8,7 @@ package repository
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/google/uuid"
 )
 
 const createToy = `-- name: CreateToy :one
@@ -19,11 +19,18 @@ INSERT INTO toys (
 VALUES
   ($1, $2, $3, $4, $5)
 RETURNING
-  id, category_id, name, description, size, materials, created_at, updated_at
+  id,
+  category_id,
+  name,
+  description,
+  size,
+  materials,
+  created_at,
+  updated_at
 `
 
 type CreateToyParams struct {
-	CategoryID  pgtype.UUID
+	CategoryID  uuid.UUID
 	Name        string
 	Description string
 	Size        string
@@ -74,7 +81,7 @@ func (q *Queries) GetToys(ctx context.Context) ([]Toy, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Toy
+	items := []Toy{}
 	for rows.Next() {
 		var i Toy
 		if err := rows.Scan(

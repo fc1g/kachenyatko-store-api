@@ -3,7 +3,7 @@ package validation
 import "github.com/go-playground/validator/v10"
 
 type Validator interface {
-	Struct(s interface{}) error
+	Struct(s any) error
 }
 
 func New() *validator.Validate {

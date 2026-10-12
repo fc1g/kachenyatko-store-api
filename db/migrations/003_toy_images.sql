@@ -4,10 +4,10 @@ CREATE TABLE toy_images (
   toy_id UUID NOT NULL REFERENCES toys (id) ON DELETE CASCADE,
   url TEXT NOT NULL,
   position INT NOT NULL,
-  UNIQUE(toy_id, position),
-  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(toy_id, position)
 );
 
 -- +goose Down
-DROP TABLE toy_images;
+DROP TABLE IF EXISTS toy_images;

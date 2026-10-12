@@ -8,7 +8,7 @@ package repository
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/google/uuid"
 )
 
 const createImageForToy = `-- name: CreateImageForToy :one
@@ -16,11 +16,16 @@ INSERT INTO toy_images (toy_id, url, position)
 VALUES
   ($1, $2, $3)
 RETURNING
-  id, toy_id, url, position, created_at, updated_at
+  id,
+  toy_id,
+  url,
+  position,
+  created_at,
+  updated_at
 `
 
 type CreateImageForToyParams struct {
-	ToyID    pgtype.UUID
+	ToyID    uuid.UUID
 	Url      string
 	Position int32
 }
@@ -50,18 +55,18 @@ SELECT
 FROM
   toy_images
 WHERE
-  toy_id = $1
+  toy_id = ANY($1)
 ORDER BY
   position
 `
 
-func (q *Queries) GetImagesByToyID(ctx context.Context, toyID pgtype.UUID) ([]ToyImage, error) {
+func (q *Queries) GetImagesByToyID(ctx context.Context, toyID uuid.UUID) ([]ToyImage, error) {
 	rows, err := q.db.Query(ctx, getImagesByToyID, toyID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ToyImage
+	items := []ToyImage{}
 	for rows.Next() {
 		var i ToyImage
 		if err := rows.Scan(

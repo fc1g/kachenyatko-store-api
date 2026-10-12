@@ -14,7 +14,11 @@ INSERT INTO categories (name, slug)
 VALUES
   ($1, $2)
 RETURNING
-  id, name, slug, created_at, updated_at
+  id,
+  name,
+  slug,
+  created_at,
+  updated_at
 `
 
 type CreateCategoryParams struct {
@@ -54,7 +58,7 @@ func (q *Queries) GetCategories(ctx context.Context) ([]Category, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Category
+	items := []Category{}
 	for rows.Next() {
 		var i Category
 		if err := rows.Scan(

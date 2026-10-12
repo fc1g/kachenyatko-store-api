@@ -1,11 +1,11 @@
-include .env
+-include .env
 export
 
 .SILENT:
 .PHONY: up down clean dev sqlc migrate migrate-down migrate-status
 
 up:
-	COMPOSE_BAKE=true docker compose up --build
+	docker compose up
 
 down:
 	docker compose down && clear
