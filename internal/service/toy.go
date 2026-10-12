@@ -2,12 +2,16 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/fc1g/kachenyatko-store-api/internal/apperr"
 	"github.com/fc1g/kachenyatko-store-api/internal/repository"
 	"github.com/fc1g/kachenyatko-store-api/internal/validation"
 	"github.com/google/uuid"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type ToyService struct {
@@ -47,6 +51,13 @@ func (s *ToyService) Create(ctx context.Context, dto CreateToyInput) (repository
 		Materials:   dto.Materials,
 	})
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			switch pgErr.Code {
+			case pgerrcode.ForeignKeyViolation:
+				return repository.Toy{}, apperr.Error{Code: apperr.CodeInvalid, Message: "category not found", Err: err}
+			}
+		}
 		return repository.Toy{}, fmt.Errorf("create toy: %w", err)
 	}
 
