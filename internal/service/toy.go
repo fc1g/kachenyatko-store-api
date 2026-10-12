@@ -3,54 +3,60 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/fc1g/kachenyatko-store-api/internal/repository"
+	"github.com/fc1g/kachenyatko-store-api/internal/validation"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type ToyService struct {
-	queries *repository.Queries
+	queries   *repository.Queries
+	validator validation.Validator
 }
 
-func NewToyService(queries *repository.Queries) *ToyService {
+func NewToyService(queries *repository.Queries, validator validation.Validator) *ToyService {
 	return &ToyService{
-		queries: queries,
+		queries:   queries,
+		validator: validator,
 	}
 }
 
 type CreateToyInput struct {
-	CategoryID  uuid.UUID
-	Name        string
-	Description string
-	Size        string
-	Materials   string
+	CategoryID  uuid.UUID `json:"category_id" validate:"required"`
+	Name        string    `json:"name" validate:"required,max=100"`
+	Description string    `json:"description" validate:"required,max=2000"`
+	Size        string    `json:"size" validate:"required,max=50"`
+	Materials   string    `json:"materials" validate:"required,max=255"`
 }
 
-func (ts *ToyService) Create(ctx context.Context, dto CreateToyInput) (repository.Toy, error) {
-	pgUUID := pgtype.UUID{
-		Bytes: dto.CategoryID,
-		Valid: true,
+func (s *ToyService) Create(ctx context.Context, dto CreateToyInput) (repository.Toy, error) {
+	dto.Name = strings.TrimSpace(dto.Name)
+	dto.Description = strings.TrimSpace(dto.Description)
+	dto.Size = strings.TrimSpace(dto.Size)
+	dto.Materials = strings.TrimSpace(dto.Materials)
+	if err := validate(s.validator, dto); err != nil {
+		return repository.Toy{}, err
 	}
 
-	toy, err := ts.queries.CreateToy(ctx, repository.CreateToyParams{
-		CategoryID:  pgUUID,
+	toy, err := s.queries.CreateToy(ctx, repository.CreateToyParams{
+		CategoryID:  dto.CategoryID,
 		Name:        dto.Name,
 		Description: dto.Description,
 		Size:        dto.Size,
 		Materials:   dto.Materials,
 	})
 	if err != nil {
-		return repository.Toy{}, fmt.Errorf("Couldn't create toy: %w", err)
+		return repository.Toy{}, fmt.Errorf("create toy: %w", err)
 	}
 
 	return toy, nil
 }
 
-func (ts *ToyService) GetAll(ctx context.Context) ([]repository.Toy, error) {
-	toys, err := ts.queries.GetToys(ctx)
+func (s *ToyService) GetAll(ctx context.Context) ([]repository.Toy, error) {
+	toys, err := s.queries.GetToys(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("Couldn't get toys: %w", err)
+		return nil, fmt.Errorf("get toys: %w", err)
 	}
 
 	return toys, nil

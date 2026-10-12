@@ -3,23 +3,25 @@ package app
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/fc1g/kachenyatko-store-api/internal/config"
+	"github.com/fc1g/kachenyatko-store-api/internal/handler"
 	"github.com/fc1g/kachenyatko-store-api/internal/repository"
+	"github.com/fc1g/kachenyatko-store-api/internal/router"
 	"github.com/fc1g/kachenyatko-store-api/internal/service"
+	"github.com/fc1g/kachenyatko-store-api/internal/validation"
 	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
 )
 
 type App struct {
-	Validator *validator.Validate
+	Validator validation.Validator
 	Logger    zerolog.Logger
 	Config    *config.Config
 	DB        *pgxpool.Pool
-
-	ToyService      *service.ToyService
-	CategoryService *service.CategoriesService
+	Server    *http.Server
 }
 
 func New(ctx context.Context, v *validator.Validate, cfg *config.Config, logger zerolog.Logger) (*App, error) {
@@ -35,17 +37,25 @@ func New(ctx context.Context, v *validator.Validate, cfg *config.Config, logger 
 
 	queries := repository.New(pool)
 
-	categoryService := service.NewCategoriesService(queries)
-	toyService := service.NewToyService(queries)
+	categoryService := service.NewCategoryService(queries, v)
+	toyService := service.NewToyService(queries, v)
+
+	categoryHandler := handler.NewCategoryHandler(logger, categoryService)
+	toyHandler := handler.NewToyHandler(logger, toyService)
+	r := router.New(categoryHandler, toyHandler)
+
+	server := &http.Server{Addr: ":" + cfg.Port, Handler: r}
+
+	go server.ListenAndServe()
+
+	logger.Info().Str("addr", ":"+cfg.Port).Msg("Server is listening")
 
 	return &App{
 		Validator: v,
 		Logger:    logger,
 		Config:    cfg,
 		DB:        pool,
-
-		CategoryService: categoryService,
-		ToyService:      toyService,
+		Server:    server,
 	}, nil
 }
 

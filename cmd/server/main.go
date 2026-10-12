@@ -4,6 +4,7 @@ import (
 	"context"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/fc1g/kachenyatko-store-api/internal/app"
 	"github.com/fc1g/kachenyatko-store-api/internal/config"
@@ -28,14 +29,21 @@ func main() {
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 
-	app, err := app.New(ctx, v, cfg, logger)
+	a, err := app.New(ctx, v, cfg, logger)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Couldn't initialize application")
 	}
 
 	<-ctx.Done()
+	stop()
 
-	app.Close()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := a.Server.Shutdown(shutdownCtx); err != nil {
+		logger.Error().Err(err).Msg("Server forced to shutdown")
+	}
+
+	a.Close()
 }
