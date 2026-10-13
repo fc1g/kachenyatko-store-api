@@ -14,15 +14,20 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-type CategoryService struct {
-	queries   *repository.Queries
-	validator validation.Validator
+type categoryRepository interface {
+	CreateCategory(ctx context.Context, arg repository.CreateCategoryParams) (repository.Category, error)
+	GetCategories(ctx context.Context) ([]repository.Category, error)
 }
 
-func NewCategoryService(queries *repository.Queries, validator validation.Validator) *CategoryService {
+type CategoryService struct {
+	repo categoryRepository
+	v    validation.Validator
+}
+
+func NewCategoryService(repo categoryRepository, v validation.Validator) *CategoryService {
 	return &CategoryService{
-		queries:   queries,
-		validator: validator,
+		repo: repo,
+		v:    v,
 	}
 }
 
@@ -32,7 +37,7 @@ type CreateCategoryInput struct {
 
 func (s *CategoryService) Create(ctx context.Context, dto CreateCategoryInput) (repository.Category, error) {
 	dto.Name = strings.TrimSpace(dto.Name)
-	if err := validate(s.validator, dto); err != nil {
+	if err := validate(s.v, dto); err != nil {
 		return repository.Category{}, err
 	}
 
@@ -41,7 +46,7 @@ func (s *CategoryService) Create(ctx context.Context, dto CreateCategoryInput) (
 		return repository.Category{}, apperr.Error{Code: apperr.CodeInvalid, Message: "name must contain letters or digits"}
 	}
 
-	category, err := s.queries.CreateCategory(ctx, repository.CreateCategoryParams{
+	category, err := s.repo.CreateCategory(ctx, repository.CreateCategoryParams{
 		Name: dto.Name,
 		Slug: sl,
 	})
@@ -61,7 +66,7 @@ func (s *CategoryService) Create(ctx context.Context, dto CreateCategoryInput) (
 }
 
 func (s *CategoryService) GetAll(ctx context.Context) ([]repository.Category, error) {
-	categories, err := s.queries.GetCategories(ctx)
+	categories, err := s.repo.GetCategories(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get categories: %w", err)
 	}
