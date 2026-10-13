@@ -44,7 +44,22 @@ func (q *Queries) CreateImageForToy(ctx context.Context, arg CreateImageForToyPa
 	return i, err
 }
 
-const getImagesByToyID = `-- name: GetImagesByToyID :many
+const deleteToyImage = `-- name: DeleteToyImage :execrows
+DELETE FROM
+  toy_images
+WHERE
+  id = $1
+`
+
+func (q *Queries) DeleteToyImage(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteToyImage, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const getImageByID = `-- name: GetImageByID :one
 SELECT
   id,
   toy_id,
@@ -55,13 +70,48 @@ SELECT
 FROM
   toy_images
 WHERE
-  toy_id = ANY($1)
+  toy_id = $1
+  AND id = $2
+`
+
+type GetImageByIDParams struct {
+	ToyID uuid.UUID
+	ID    uuid.UUID
+}
+
+func (q *Queries) GetImageByID(ctx context.Context, arg GetImageByIDParams) (ToyImage, error) {
+	row := q.db.QueryRow(ctx, getImageByID, arg.ToyID, arg.ID)
+	var i ToyImage
+	err := row.Scan(
+		&i.ID,
+		&i.ToyID,
+		&i.Url,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getImagesByToyIDs = `-- name: GetImagesByToyIDs :many
+SELECT
+  id,
+  toy_id,
+  url,
+  position,
+  created_at,
+  updated_at
+FROM
+  toy_images
+WHERE
+  toy_id = ANY($1::uuid[])
 ORDER BY
+  toy_id,
   position
 `
 
-func (q *Queries) GetImagesByToyID(ctx context.Context, toyID uuid.UUID) ([]ToyImage, error) {
-	rows, err := q.db.Query(ctx, getImagesByToyID, toyID)
+func (q *Queries) GetImagesByToyIDs(ctx context.Context, toyIds []uuid.UUID) ([]ToyImage, error) {
+	rows, err := q.db.Query(ctx, getImagesByToyIDs, toyIds)
 	if err != nil {
 		return nil, err
 	}
@@ -85,4 +135,40 @@ func (q *Queries) GetImagesByToyID(ctx context.Context, toyID uuid.UUID) ([]ToyI
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateToyImage = `-- name: UpdateToyImage :one
+UPDATE
+  toy_images
+SET
+  url = $2,
+  updated_at = NOW()
+WHERE
+  id = $1
+RETURNING
+  id,
+  toy_id,
+  url,
+  position,
+  created_at,
+  updated_at
+`
+
+type UpdateToyImageParams struct {
+	ID  uuid.UUID
+	Url string
+}
+
+func (q *Queries) UpdateToyImage(ctx context.Context, arg UpdateToyImageParams) (ToyImage, error) {
+	row := q.db.QueryRow(ctx, updateToyImage, arg.ID, arg.Url)
+	var i ToyImage
+	err := row.Scan(
+		&i.ID,
+		&i.ToyID,
+		&i.Url,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

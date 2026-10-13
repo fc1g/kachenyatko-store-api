@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/fc1g/kachenyatko-store-api/internal/apperr"
@@ -33,8 +34,16 @@ func fieldMessage(fieldError validator.FieldError) string {
 	switch fieldError.Tag() {
 	case "required":
 		return fmt.Sprintf("%s is required", fieldError.Field())
+	case "min":
+		if fieldError.Kind() == reflect.String {
+			return fmt.Sprintf("%s must be at least %s characters", fieldError.Field(), fieldError.Param())
+		}
+		return fmt.Sprintf("%s must be at least %s", fieldError.Field(), fieldError.Param())
 	case "max":
-		return fmt.Sprintf("%s must be at most %s characters", fieldError.Field(), fieldError.Param())
+		if fieldError.Kind() == reflect.String {
+			return fmt.Sprintf("%s must be at most %s characters", fieldError.Field(), fieldError.Param())
+		}
+		return fmt.Sprintf("%s cannot exceed %s", fieldError.Field(), fieldError.Param())
 	default:
 		return fmt.Sprintf("%s is invalid", fieldError.Field())
 	}
