@@ -11,11 +11,15 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 	data, err := json.Marshal(v)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
+		if _, err := w.Write([]byte(http.StatusText(http.StatusInternalServerError))); err != nil {
+			return
+		}
 		return
 	}
 	w.WriteHeader(code)
-	w.Write(data)
+	if _, err := w.Write(data); err != nil {
+		return
+	}
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {

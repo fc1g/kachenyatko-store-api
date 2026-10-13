@@ -13,7 +13,9 @@ type errorResponse struct {
 	Message string `json:"message"`
 }
 
-func writeError(w http.ResponseWriter, logger zerolog.Logger, err error) {
+func writeError(w http.ResponseWriter, r *http.Request, err error) {
+	logger := zerolog.Ctx(r.Context())
+
 	var appErr apperr.Error
 	if errors.As(err, &appErr) {
 		writeJSON(w, statusFor(appErr.Code), errorResponse{Code: string(appErr.Code), Message: appErr.Message})

@@ -10,6 +10,8 @@ import (
 )
 
 func New(cfg config.Logging) (zerolog.Logger, error) {
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+
 	level, err := zerolog.ParseLevel(cfg.Level)
 	if err != nil {
 		return zerolog.Logger{}, err

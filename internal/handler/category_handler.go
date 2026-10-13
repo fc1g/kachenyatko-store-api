@@ -1,23 +1,26 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/fc1g/kachenyatko-store-api/internal/model"
 	"github.com/fc1g/kachenyatko-store-api/internal/repository"
 	"github.com/fc1g/kachenyatko-store-api/internal/service"
-	"github.com/rs/zerolog"
 )
 
-type CategoryHandler struct {
-	logger  zerolog.Logger
-	service *service.CategoryService
+type categoryService interface {
+	Create(ctx context.Context, dto service.CreateCategoryInput) (repository.Category, error)
+	GetAll(ctx context.Context) ([]repository.Category, error)
 }
 
-func NewCategoryHandler(logger zerolog.Logger, categoryService *service.CategoryService) *CategoryHandler {
+type CategoryHandler struct {
+	service categoryService
+}
+
+func NewCategoryHandler(cs categoryService) *CategoryHandler {
 	return &CategoryHandler{
-		logger:  logger,
-		service: categoryService,
+		service: cs,
 	}
 }
 
@@ -29,7 +32,7 @@ func (h *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	dbCategory, err := h.service.Create(r.Context(), dto)
 	if err != nil {
-		writeError(w, h.logger, err)
+		writeError(w, r, err)
 		return
 	}
 
@@ -39,7 +42,7 @@ func (h *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *CategoryHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	dbCategories, err := h.service.GetAll(r.Context())
 	if err != nil {
-		writeError(w, h.logger, err)
+		writeError(w, r, err)
 		return
 	}
 

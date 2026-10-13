@@ -1,23 +1,26 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/fc1g/kachenyatko-store-api/internal/model"
 	"github.com/fc1g/kachenyatko-store-api/internal/repository"
 	"github.com/fc1g/kachenyatko-store-api/internal/service"
-	"github.com/rs/zerolog"
 )
 
-type ToyHandler struct {
-	logger  zerolog.Logger
-	service *service.ToyService
+type toyService interface {
+	Create(ctx context.Context, dto service.CreateToyInput) (repository.Toy, error)
+	GetAll(ctx context.Context) ([]repository.Toy, error)
 }
 
-func NewToyHandler(logger zerolog.Logger, toyService *service.ToyService) *ToyHandler {
+type ToyHandler struct {
+	service toyService
+}
+
+func NewToyHandler(ts toyService) *ToyHandler {
 	return &ToyHandler{
-		logger:  logger,
-		service: toyService,
+		service: ts,
 	}
 }
 
@@ -29,7 +32,7 @@ func (h *ToyHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	dbToy, err := h.service.Create(r.Context(), dto)
 	if err != nil {
-		writeError(w, h.logger, err)
+		writeError(w, r, err)
 		return
 	}
 
@@ -39,7 +42,7 @@ func (h *ToyHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *ToyHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	dbToys, err := h.service.GetAll(r.Context())
 	if err != nil {
-		writeError(w, h.logger, err)
+		writeError(w, r, err)
 		return
 	}
 
