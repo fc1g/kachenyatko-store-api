@@ -19,11 +19,17 @@ type healthHandler interface {
 type categoryHandler interface {
 	Create(w http.ResponseWriter, r *http.Request)
 	GetAll(w http.ResponseWriter, r *http.Request)
+	GetOne(w http.ResponseWriter, r *http.Request)
+	Update(w http.ResponseWriter, r *http.Request)
+	Delete(w http.ResponseWriter, r *http.Request)
 }
 
 type toyHandler interface {
 	Create(w http.ResponseWriter, r *http.Request)
 	GetAll(w http.ResponseWriter, r *http.Request)
+	GetOne(w http.ResponseWriter, r *http.Request)
+	Update(w http.ResponseWriter, r *http.Request)
+	Delete(w http.ResponseWriter, r *http.Request)
 }
 
 type Handlers struct {
@@ -45,11 +51,17 @@ func New(logger zerolog.Logger, handlers Handlers) *chi.Mux {
 	r.Route("/categories", func(r chi.Router) {
 		r.Post("/", handlers.Category.Create)
 		r.Get("/", handlers.Category.GetAll)
+		r.Get("/{categoryID}", handlers.Category.GetOne)
+		r.Put("/{categoryID}", handlers.Category.Update)
+		r.Delete("/{categoryID}", handlers.Category.Delete)
 	})
 
 	r.Route("/toys", func(r chi.Router) {
 		r.Post("/", handlers.Toy.Create)
 		r.Get("/", handlers.Toy.GetAll)
+		r.Get("/{toyID}", handlers.Toy.GetOne)
+		r.Put("/{toyID}", handlers.Toy.Update)
+		r.Delete("/{toyID}", handlers.Toy.Delete)
 	})
 
 	return r

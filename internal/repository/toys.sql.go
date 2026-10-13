@@ -59,6 +59,53 @@ func (q *Queries) CreateToy(ctx context.Context, arg CreateToyParams) (Toy, erro
 	return i, err
 }
 
+const deleteToy = `-- name: DeleteToy :execrows
+DELETE FROM
+  toys
+WHERE
+  id = $1
+`
+
+func (q *Queries) DeleteToy(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteToy, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const getToy = `-- name: GetToy :one
+SELECT
+  id,
+  category_id,
+  name,
+  description,
+  size,
+  materials,
+  created_at,
+  updated_at
+FROM
+  toys
+WHERE
+  id = $1
+`
+
+func (q *Queries) GetToy(ctx context.Context, id uuid.UUID) (Toy, error) {
+	row := q.db.QueryRow(ctx, getToy, id)
+	var i Toy
+	err := row.Scan(
+		&i.ID,
+		&i.CategoryID,
+		&i.Name,
+		&i.Description,
+		&i.Size,
+		&i.Materials,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getToys = `-- name: GetToys :many
 SELECT
   id,
@@ -102,4 +149,59 @@ func (q *Queries) GetToys(ctx context.Context) ([]Toy, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateToy = `-- name: UpdateToy :one
+UPDATE
+  toys
+SET
+  category_id = $2,
+  name = $3,
+  description = $4,
+  size = $5,
+  materials = $6,
+  updated_at = NOW()
+WHERE
+  id = $1
+RETURNING
+  id,
+  category_id,
+  name,
+  description,
+  size,
+  materials,
+  created_at,
+  updated_at
+`
+
+type UpdateToyParams struct {
+	ID          uuid.UUID
+	CategoryID  uuid.UUID
+	Name        string
+	Description string
+	Size        string
+	Materials   string
+}
+
+func (q *Queries) UpdateToy(ctx context.Context, arg UpdateToyParams) (Toy, error) {
+	row := q.db.QueryRow(ctx, updateToy,
+		arg.ID,
+		arg.CategoryID,
+		arg.Name,
+		arg.Description,
+		arg.Size,
+		arg.Materials,
+	)
+	var i Toy
+	err := row.Scan(
+		&i.ID,
+		&i.CategoryID,
+		&i.Name,
+		&i.Description,
+		&i.Size,
+		&i.Materials,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
