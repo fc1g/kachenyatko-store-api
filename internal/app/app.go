@@ -53,7 +53,7 @@ func New(ctx context.Context, cfg *config.Config, logger zerolog.Logger, v valid
 	})
 
 	server := &http.Server{
-		Addr:              ":" + cfg.HTTP.Port,
+		Addr:              fmt.Sprintf(":%d", cfg.HTTP.Port),
 		Handler:           r,
 		ReadHeaderTimeout: cfg.HTTP.ReadHeaderTimeout,
 		ReadTimeout:       cfg.HTTP.ReadTimeout,

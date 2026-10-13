@@ -19,7 +19,7 @@ type Config struct {
 }
 
 type HTTP struct {
-	Port              string        `validate:"required,port"`
+	Port              int           `validate:"required,port"`
 	ReadHeaderTimeout time.Duration `validate:"gt=0"`
 	ReadTimeout       time.Duration `validate:"gt=0"`
 	WriteTimeout      time.Duration `validate:"gt=0"`
@@ -43,6 +43,11 @@ func Load(v validation.Validator) (*Config, error) {
 
 	var httpErrors []error
 
+	port, err := getIntEnv("PORT", 3000)
+	if err != nil {
+		httpErrors = append(httpErrors, err)
+	}
+
 	getDuration := func(key string, fallback time.Duration) time.Duration {
 		d, err := getDurationEnv(key, fallback)
 		if err != nil {
@@ -54,7 +59,7 @@ func Load(v validation.Validator) (*Config, error) {
 	cfg := &Config{
 		Environment: os.Getenv("ENVIRONMENT"),
 		HTTP: HTTP{
-			Port:              os.Getenv("PORT"),
+			Port:              port,
 			ReadHeaderTimeout: getDuration("HTTP_READ_HEADER_TIMEOUT", 5*time.Second),
 			ReadTimeout:       getDuration("HTTP_READ_TIMEOUT", 10*time.Second),
 			WriteTimeout:      getDuration("HTTP_WRITE_TIMEOUT", 10*time.Second),
@@ -89,8 +94,22 @@ func getDurationEnv(key string, fallback time.Duration) (time.Duration, error) {
 
 	d, err := time.ParseDuration(v)
 	if err != nil {
-		return 0, fmt.Errorf("%s: %w", key, err)
+		return fallback, fmt.Errorf("%s: %w", key, err)
 	}
 
 	return d, nil
+}
+
+func getIntEnv(key string, fallback int) (int, error) {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback, nil
+	}
+
+	i, err := strconv.Atoi(v)
+	if err != nil {
+		return fallback, fmt.Errorf("%s: %w", key, err)
+	}
+
+	return i, nil
 }
