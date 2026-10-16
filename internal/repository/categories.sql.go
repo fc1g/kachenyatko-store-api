@@ -121,6 +121,32 @@ func (q *Queries) GetCategory(ctx context.Context, id uuid.UUID) (Category, erro
 	return i, err
 }
 
+const getCategoryBySlug = `-- name: GetCategoryBySlug :one
+SELECT
+  id,
+  name,
+  slug,
+  created_at,
+  updated_at
+FROM
+  categories
+WHERE
+  slug = $1
+`
+
+func (q *Queries) GetCategoryBySlug(ctx context.Context, slug string) (Category, error) {
+	row := q.db.QueryRow(ctx, getCategoryBySlug, slug)
+	var i Category
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateCategory = `-- name: UpdateCategory :one
 UPDATE
   categories
@@ -146,6 +172,39 @@ type UpdateCategoryParams struct {
 
 func (q *Queries) UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error) {
 	row := q.db.QueryRow(ctx, updateCategory, arg.ID, arg.Name, arg.Slug)
+	var i Category
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertCategory = `-- name: UpsertCategory :one
+INSERT INTO categories (name, slug)
+VALUES
+  ($1, $2) ON CONFLICT (slug) DO
+UPDATE
+SET
+  slug = EXCLUDED.slug
+RETURNING
+  id,
+  name,
+  slug,
+  created_at,
+  updated_at
+`
+
+type UpsertCategoryParams struct {
+	Name string
+	Slug string
+}
+
+func (q *Queries) UpsertCategory(ctx context.Context, arg UpsertCategoryParams) (Category, error) {
+	row := q.db.QueryRow(ctx, upsertCategory, arg.Name, arg.Slug)
 	var i Category
 	err := row.Scan(
 		&i.ID,

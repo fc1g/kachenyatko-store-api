@@ -9,6 +9,20 @@ RETURNING
   created_at,
   updated_at;
 
+-- name: UpsertCategory :one
+INSERT INTO categories (name, slug)
+VALUES
+  ($1, $2) ON CONFLICT (slug) DO
+UPDATE
+SET
+  slug = EXCLUDED.slug
+RETURNING
+  id,
+  name,
+  slug,
+  created_at,
+  updated_at;
+
 -- name: GetCategories :many
 SELECT
   id,
@@ -32,6 +46,18 @@ FROM
   categories
 WHERE
   id = $1;
+
+-- name: GetCategoryBySlug :one
+SELECT
+  id,
+  name,
+  slug,
+  created_at,
+  updated_at
+FROM
+  categories
+WHERE
+  slug = $1;
 
 -- name: UpdateCategory :one
 UPDATE
