@@ -33,8 +33,8 @@ func TestError_AsThroughWrapping(t *testing.T) {
 	var target apperr.Error
 	require.ErrorAs(t, wrapped, &target)
 
-	assert.Equal(t, apperr.CodeConflict, appErr.Code)
-	assert.Equal(t, "error", appErr.Message)
+	assert.Equal(t, apperr.CodeConflict, target.Code)
+	assert.Equal(t, "category has toys", target.Message)
 }
 
 func TestError_NilInnerError(t *testing.T) {

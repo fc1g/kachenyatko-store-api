@@ -175,7 +175,7 @@ func TestLoad_JoinsMultipleParseErrors(t *testing.T) {
 	assert := assert.New(t)
 
 	require.Error(t, err)
-	assert.Nil(t, cfg)
+	assert.Nil(cfg)
 
 	assert.ErrorContains(err, "PORT")
 	assert.ErrorContains(err, "HTTP_IDLE_TIMEOUT")
