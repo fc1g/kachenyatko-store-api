@@ -17,7 +17,7 @@ import (
 
 type categoryRepository interface {
 	CreateCategory(ctx context.Context, arg repository.CreateCategoryParams) (repository.Category, error)
-	GetCategories(ctx context.Context) ([]repository.Category, error)
+	GetCategories(ctx context.Context, arg repository.GetCategoriesParams) ([]repository.Category, error)
 	GetCategoryBySlug(ctx context.Context, slug string) (repository.Category, error)
 	UpdateCategory(ctx context.Context, arg repository.UpdateCategoryParams) (repository.Category, error)
 	DeleteCategory(ctx context.Context, id uuid.UUID) (int64, error)
@@ -56,8 +56,11 @@ func (s *CategoryService) Create(ctx context.Context, dto CategoryInput) (reposi
 	return category, nil
 }
 
-func (s *CategoryService) GetAll(ctx context.Context) ([]repository.Category, error) {
-	categories, err := s.repo.GetCategories(ctx)
+func (s *CategoryService) GetAll(ctx context.Context, limit, offset int32) ([]repository.Category, error) {
+	categories, err := s.repo.GetCategories(ctx, repository.GetCategoriesParams{
+		Limit:  limit,
+		Offset: offset,
+	})
 	if err != nil {
 		return nil, categoryError(err, "get categories")
 	}
@@ -106,6 +109,7 @@ func (s *CategoryService) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 func (s *CategoryService) prepareCategory(dto CategoryInput) (name, sl string, err error) {
+	dto.Name = strings.TrimSpace(dto.Name)
 	if err := validate(s.v, dto); err != nil {
 		return dto.Name, "", err
 	}

@@ -67,10 +67,16 @@ FROM
   categories
 ORDER BY
   name
+LIMIT $1 OFFSET $2
 `
 
-func (q *Queries) GetCategories(ctx context.Context) ([]Category, error) {
-	rows, err := q.db.Query(ctx, getCategories)
+type GetCategoriesParams struct {
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) GetCategories(ctx context.Context, arg GetCategoriesParams) ([]Category, error) {
+	rows, err := q.db.Query(ctx, getCategories, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

@@ -119,11 +119,17 @@ SELECT
 FROM
   toys
 ORDER BY
-  created_at DESC
+  created_at DESC, id
+LIMIT $1 OFFSET $2
 `
 
-func (q *Queries) GetToys(ctx context.Context) ([]Toy, error) {
-	rows, err := q.db.Query(ctx, getToys)
+type GetToysParams struct {
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) GetToys(ctx context.Context, arg GetToysParams) ([]Toy, error) {
+	rows, err := q.db.Query(ctx, getToys, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

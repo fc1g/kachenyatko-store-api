@@ -16,7 +16,7 @@ import (
 
 type toyRepository interface {
 	CreateToy(ctx context.Context, arg repository.CreateToyParams) (repository.Toy, error)
-	GetToys(ctx context.Context) ([]repository.Toy, error)
+	GetToys(ctx context.Context, arg repository.GetToysParams) ([]repository.Toy, error)
 	GetToy(ctx context.Context, id uuid.UUID) (repository.Toy, error)
 	UpdateToy(ctx context.Context, arg repository.UpdateToyParams) (repository.Toy, error)
 	DeleteToy(ctx context.Context, id uuid.UUID) (int64, error)
@@ -93,8 +93,11 @@ func (s *ToyService) Create(ctx context.Context, dto CreateToyInput) (repository
 	return toy, nil
 }
 
-func (s *ToyService) GetAll(ctx context.Context) ([]repository.Toy, error) {
-	toys, err := s.repo.GetToys(ctx)
+func (s *ToyService) GetAll(ctx context.Context, limit, offset int32) ([]repository.Toy, error) {
+	toys, err := s.repo.GetToys(ctx, repository.GetToysParams{
+		Limit:  limit,
+		Offset: offset,
+	})
 	if err != nil {
 		return nil, toyError(err, "get toys")
 	}

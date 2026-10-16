@@ -28,7 +28,8 @@ SELECT
 FROM
   toys
 ORDER BY
-  created_at DESC;
+  created_at DESC, id
+LIMIT $1 OFFSET $2;
 
 -- name: GetToy :one
 SELECT

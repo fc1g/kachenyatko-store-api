@@ -12,7 +12,7 @@ import (
 
 type toyService interface {
 	Create(ctx context.Context, dto service.CreateToyInput) (repository.Toy, error)
-	GetAll(ctx context.Context) ([]repository.Toy, error)
+	GetAll(ctx context.Context, limit, offset int32) ([]repository.Toy, error)
 	GetOne(ctx context.Context, id uuid.UUID) (repository.Toy, error)
 	Update(ctx context.Context, id uuid.UUID, dto service.UpdateToyInput) (repository.Toy, error)
 	Delete(ctx context.Context, id uuid.UUID) error
@@ -46,7 +46,13 @@ func (h *ToyHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ToyHandler) GetAll(w http.ResponseWriter, r *http.Request) {
-	dbToys, err := h.service.GetAll(r.Context())
+	limit, offset, err := parsePagination(r)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+
+	dbToys, err := h.service.GetAll(r.Context(), limit, offset)
 	if err != nil {
 		writeError(w, r, err)
 		return

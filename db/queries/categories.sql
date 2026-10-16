@@ -33,7 +33,8 @@ SELECT
 FROM
   categories
 ORDER BY
-  name;
+  name
+LIMIT $1 OFFSET $2;
 
 -- name: GetCategory :one
 SELECT
