@@ -2,7 +2,7 @@
 export
 
 .SILENT:
-.PHONY: up down clean dev sqlc migrate migrate-down migrate-status
+.PHONY: up down clean dev sqlc migrate migrate-down migrate-status psql
 
 up:
 	docker compose up
@@ -27,3 +27,6 @@ migrate-down:
 
 migrate-status:
 	cd db && goose -dir migrations postgres "$(DB_URL)" status
+
+psql:
+	docker exec -it database psql -U "$(POSTGRES_USER)" -d "$(POSTGRES_DB)"
