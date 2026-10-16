@@ -30,10 +30,10 @@ type Toy struct {
 }
 
 type ToyImage struct {
-	ID        uuid.UUID
-	ToyID     uuid.UUID
-	Url       string
-	Position  int32
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID         uuid.UUID
+	ToyID      uuid.UUID
+	StorageKey string
+	Position   int32
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }

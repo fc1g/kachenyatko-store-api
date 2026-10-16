@@ -12,6 +12,7 @@ import (
 	"github.com/fc1g/kachenyatko-store-api/internal/repository"
 	"github.com/fc1g/kachenyatko-store-api/internal/router"
 	"github.com/fc1g/kachenyatko-store-api/internal/service"
+	"github.com/fc1g/kachenyatko-store-api/internal/storage"
 	"github.com/fc1g/kachenyatko-store-api/internal/validation"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
@@ -38,18 +39,34 @@ func New(ctx context.Context, cfg *config.Config, logger zerolog.Logger, v valid
 		return nil, fmt.Errorf("ping db: %w", err)
 	}
 
+	r2, err := storage.NewR2(
+		ctx,
+		cfg.Storage.Endpoint,
+		cfg.Storage.AccessKeyID,
+		cfg.Storage.SecretAccessKey,
+		cfg.Storage.BucketName,
+		cfg.Storage.PublicURL,
+	)
+	if err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("init r2 storage: %w", err)
+	}
+
 	repo := repository.NewStore(pool)
 
 	categoryService := service.NewCategoryService(repo, v)
 	toyService := service.NewToyService(repo, v)
+	toyImageService := service.NewToyImageService(repo, r2)
 
 	healthHandler := handler.NewHealthHandler(pool)
 	categoryHandler := handler.NewCategoryHandler(categoryService)
 	toyHandler := handler.NewToyHandler(toyService)
+	toyImageHandler := handler.NewToyImageHandler(toyImageService, r2)
 	r := router.New(logger, router.Handlers{
 		Health:   healthHandler,
 		Category: categoryHandler,
 		Toy:      toyHandler,
+		ToyImage: toyImageHandler,
 	})
 
 	server := &http.Server{

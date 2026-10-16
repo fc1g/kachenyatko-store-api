@@ -9,7 +9,7 @@ import (
 type ToyImage struct {
 	ID        uuid.UUID `json:"id"`
 	ToyID     uuid.UUID `json:"toy_id"`
-	Url       string    `json:"url"`
+	URL       string    `json:"url"`
 	Position  int       `json:"position"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

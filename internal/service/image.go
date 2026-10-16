@@ -1,0 +1,51 @@
+package service
+
+import (
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+
+	"github.com/fc1g/kachenyatko-store-api/internal/apperr"
+)
+
+type ImageFile struct {
+	Body io.ReadSeeker
+	Size int64
+}
+
+const maxImageSize = 5 << 20
+
+var imageExtensions = map[string]string{
+	"image/jpeg": ".jpg",
+	"image/png":  ".png",
+	"image/webp": ".webp",
+}
+
+func detectImage(file ImageFile) (contentType, ext string, err error) {
+	if file.Size <= 0 {
+		return "", "", apperr.Error{Code: apperr.CodeInvalid, Message: "image is empty"}
+	}
+
+	if file.Size > maxImageSize {
+		return "", "", apperr.Error{Code: apperr.CodeInvalid, Message: "image must be at most 5 MB"}
+	}
+
+	head := make([]byte, 512)
+	n, err := io.ReadFull(file.Body, head)
+	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
+		return "", "", fmt.Errorf("read image: %w", err)
+	}
+
+	contentType = http.DetectContentType(head[:n])
+	ext, ok := imageExtensions[contentType]
+	if !ok {
+		return "", "", apperr.Error{Code: apperr.CodeInvalid, Message: "image must be JPEG, PNG or WebP"}
+	}
+
+	if _, err := file.Body.Seek(0, io.SeekStart); err != nil {
+		return "", "", fmt.Errorf("rewind image: %w", err)
+	}
+
+	return contentType, ext, nil
+}

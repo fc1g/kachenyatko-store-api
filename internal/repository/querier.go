@@ -15,8 +15,9 @@ type Querier interface {
 	CreateImageForToy(ctx context.Context, arg CreateImageForToyParams) (ToyImage, error)
 	CreateToy(ctx context.Context, arg CreateToyParams) (Toy, error)
 	DeleteCategory(ctx context.Context, id uuid.UUID) (int64, error)
+	DeleteImagesByToyID(ctx context.Context, toyID uuid.UUID) ([]string, error)
 	DeleteToy(ctx context.Context, id uuid.UUID) (int64, error)
-	DeleteToyImage(ctx context.Context, id uuid.UUID) (int64, error)
+	DeleteToyImage(ctx context.Context, arg DeleteToyImageParams) (string, error)
 	GetCategories(ctx context.Context, arg GetCategoriesParams) ([]Category, error)
 	GetCategory(ctx context.Context, id uuid.UUID) (Category, error)
 	GetCategoryBySlug(ctx context.Context, slug string) (Category, error)
@@ -26,7 +27,6 @@ type Querier interface {
 	GetToys(ctx context.Context, arg GetToysParams) ([]Toy, error)
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error)
 	UpdateToy(ctx context.Context, arg UpdateToyParams) (Toy, error)
-	UpdateToyImage(ctx context.Context, arg UpdateToyImageParams) (ToyImage, error)
 	UpsertCategory(ctx context.Context, arg UpsertCategoryParams) (Category, error)
 }
 

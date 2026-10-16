@@ -1,11 +1,20 @@
 -- name: CreateImageForToy :one
-INSERT INTO toy_images (toy_id, url, position)
-VALUES
-  ($1, $2, $3)
+INSERT INTO toy_images (toy_id, storage_key, position)
+SELECT
+  sqlc.arg(toy_id):: uuid,
+  sqlc.arg(storage_key):: text,
+  COALESCE(
+    MAX(position),
+    -1
+  ) + 1
+FROM
+  toy_images
+WHERE
+  toy_id = sqlc.arg(toy_id):: uuid
 RETURNING
   id,
   toy_id,
-  url,
+  storage_key,
   position,
   created_at,
   updated_at;
@@ -14,7 +23,7 @@ RETURNING
 SELECT
   id,
   toy_id,
-  url,
+  storage_key,
   position,
   created_at,
   updated_at
@@ -30,7 +39,7 @@ ORDER BY
 SELECT
   id,
   toy_id,
-  url,
+  storage_key,
   position,
   created_at,
   updated_at
@@ -40,24 +49,19 @@ WHERE
   toy_id = $1
   AND id = $2;
 
--- name: UpdateToyImage :one
-UPDATE
-  toy_images
-SET
-  url = $2,
-  updated_at = NOW()
-WHERE
-  id = $1
-RETURNING
-  id,
-  toy_id,
-  url,
-  position,
-  created_at,
-  updated_at;
-
--- name: DeleteToyImage :execrows
+-- name: DeleteToyImage :one
 DELETE FROM
   toy_images
 WHERE
-  id = $1;
+  toy_id = $1
+  AND id = $2
+RETURNING
+  storage_key;
+
+-- name: DeleteImagesByToyID :many
+DELETE FROM
+  toy_images
+WHERE
+  toy_id = $1
+RETURNING
+  storage_key;

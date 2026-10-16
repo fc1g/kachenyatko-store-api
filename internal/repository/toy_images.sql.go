@@ -12,31 +12,39 @@ import (
 )
 
 const createImageForToy = `-- name: CreateImageForToy :one
-INSERT INTO toy_images (toy_id, url, position)
-VALUES
-  ($1, $2, $3)
+INSERT INTO toy_images (toy_id, storage_key, position)
+SELECT
+  $1:: uuid,
+  $2:: text,
+  COALESCE(
+    MAX(position),
+    -1
+  ) + 1
+FROM
+  toy_images
+WHERE
+  toy_id = $1:: uuid
 RETURNING
   id,
   toy_id,
-  url,
+  storage_key,
   position,
   created_at,
   updated_at
 `
 
 type CreateImageForToyParams struct {
-	ToyID    uuid.UUID
-	Url      string
-	Position int32
+	ToyID      uuid.UUID
+	StorageKey string
 }
 
 func (q *Queries) CreateImageForToy(ctx context.Context, arg CreateImageForToyParams) (ToyImage, error) {
-	row := q.db.QueryRow(ctx, createImageForToy, arg.ToyID, arg.Url, arg.Position)
+	row := q.db.QueryRow(ctx, createImageForToy, arg.ToyID, arg.StorageKey)
 	var i ToyImage
 	err := row.Scan(
 		&i.ID,
 		&i.ToyID,
-		&i.Url,
+		&i.StorageKey,
 		&i.Position,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -44,26 +52,62 @@ func (q *Queries) CreateImageForToy(ctx context.Context, arg CreateImageForToyPa
 	return i, err
 }
 
-const deleteToyImage = `-- name: DeleteToyImage :execrows
+const deleteImagesByToyID = `-- name: DeleteImagesByToyID :many
 DELETE FROM
   toy_images
 WHERE
-  id = $1
+  toy_id = $1
+RETURNING
+  storage_key
 `
 
-func (q *Queries) DeleteToyImage(ctx context.Context, id uuid.UUID) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteToyImage, id)
+func (q *Queries) DeleteImagesByToyID(ctx context.Context, toyID uuid.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, deleteImagesByToyID, toyID)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return result.RowsAffected(), nil
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var storage_key string
+		if err := rows.Scan(&storage_key); err != nil {
+			return nil, err
+		}
+		items = append(items, storage_key)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const deleteToyImage = `-- name: DeleteToyImage :one
+DELETE FROM
+  toy_images
+WHERE
+  toy_id = $1
+  AND id = $2
+RETURNING
+  storage_key
+`
+
+type DeleteToyImageParams struct {
+	ToyID uuid.UUID
+	ID    uuid.UUID
+}
+
+func (q *Queries) DeleteToyImage(ctx context.Context, arg DeleteToyImageParams) (string, error) {
+	row := q.db.QueryRow(ctx, deleteToyImage, arg.ToyID, arg.ID)
+	var storage_key string
+	err := row.Scan(&storage_key)
+	return storage_key, err
 }
 
 const getImageByID = `-- name: GetImageByID :one
 SELECT
   id,
   toy_id,
-  url,
+  storage_key,
   position,
   created_at,
   updated_at
@@ -85,7 +129,7 @@ func (q *Queries) GetImageByID(ctx context.Context, arg GetImageByIDParams) (Toy
 	err := row.Scan(
 		&i.ID,
 		&i.ToyID,
-		&i.Url,
+		&i.StorageKey,
 		&i.Position,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -97,7 +141,7 @@ const getImagesByToyIDs = `-- name: GetImagesByToyIDs :many
 SELECT
   id,
   toy_id,
-  url,
+  storage_key,
   position,
   created_at,
   updated_at
@@ -122,7 +166,7 @@ func (q *Queries) GetImagesByToyIDs(ctx context.Context, toyIds []uuid.UUID) ([]
 		if err := rows.Scan(
 			&i.ID,
 			&i.ToyID,
-			&i.Url,
+			&i.StorageKey,
 			&i.Position,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -135,40 +179,4 @@ func (q *Queries) GetImagesByToyIDs(ctx context.Context, toyIds []uuid.UUID) ([]
 		return nil, err
 	}
 	return items, nil
-}
-
-const updateToyImage = `-- name: UpdateToyImage :one
-UPDATE
-  toy_images
-SET
-  url = $2,
-  updated_at = NOW()
-WHERE
-  id = $1
-RETURNING
-  id,
-  toy_id,
-  url,
-  position,
-  created_at,
-  updated_at
-`
-
-type UpdateToyImageParams struct {
-	ID  uuid.UUID
-	Url string
-}
-
-func (q *Queries) UpdateToyImage(ctx context.Context, arg UpdateToyImageParams) (ToyImage, error) {
-	row := q.db.QueryRow(ctx, updateToyImage, arg.ID, arg.Url)
-	var i ToyImage
-	err := row.Scan(
-		&i.ID,
-		&i.ToyID,
-		&i.Url,
-		&i.Position,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
 }

@@ -2,7 +2,7 @@
 CREATE TABLE toy_images (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   toy_id UUID NOT NULL REFERENCES toys (id) ON DELETE CASCADE,
-  url TEXT NOT NULL,
+  storage_key TEXT NOT NULL UNIQUE,
   position INT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

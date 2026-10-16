@@ -9,7 +9,10 @@ import (
 	"github.com/rs/zerolog"
 )
 
-const maxBodyBytes = 1 << 20
+const (
+	maxBodyBytes        = 1 << 20
+	maxImageUploadBytes = 6 << 20
+)
 
 type healthHandler interface {
 	Live(w http.ResponseWriter, r *http.Request)
@@ -32,10 +35,18 @@ type toyHandler interface {
 	Delete(w http.ResponseWriter, r *http.Request)
 }
 
+type toyImageHandler interface {
+	Create(w http.ResponseWriter, r *http.Request)
+	GetAll(w http.ResponseWriter, r *http.Request)
+	GetOne(w http.ResponseWriter, r *http.Request)
+	Delete(w http.ResponseWriter, r *http.Request)
+}
+
 type Handlers struct {
 	Health   healthHandler
 	Category categoryHandler
 	Toy      toyHandler
+	ToyImage toyImageHandler
 }
 
 func New(logger zerolog.Logger, handlers Handlers) *chi.Mux {
@@ -43,7 +54,6 @@ func New(logger zerolog.Logger, handlers Handlers) *chi.Mux {
 	r.Use(middleware.RequestID)
 	r.Use(httpmw.RequestLogger(logger))
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.RequestSize(maxBodyBytes))
 
 	r.Get("/livez", handlers.Health.Live)
 	r.Get("/readyz", handlers.Health.Ready)
@@ -53,6 +63,7 @@ func New(logger zerolog.Logger, handlers Handlers) *chi.Mux {
 		r.Get("/{slug}", handlers.Category.GetOne)
 
 		r.Group(func(r chi.Router) {
+			r.Use(middleware.RequestSize(maxBodyBytes))
 			// TODO: r.use(requireAdmin)
 			r.Post("/", handlers.Category.Create)
 			r.Put("/{categoryID}", handlers.Category.Update)
@@ -65,10 +76,22 @@ func New(logger zerolog.Logger, handlers Handlers) *chi.Mux {
 		r.Get("/{toyID}", handlers.Toy.GetOne)
 
 		r.Group(func(r chi.Router) {
+			r.Use(middleware.RequestSize(maxBodyBytes))
 			// TODO: r.use(requireAdmin)
 			r.Post("/", handlers.Toy.Create)
 			r.Put("/{toyID}", handlers.Toy.Update)
 			r.Delete("/{toyID}", handlers.Toy.Delete)
+		})
+
+		r.Route("/{toyID}/images", func(r chi.Router) {
+			r.Get("/", handlers.ToyImage.GetAll)
+			r.Get("/{imageID}", handlers.ToyImage.GetOne)
+
+			r.Group(func(r chi.Router) {
+				// TODO: r.use(requireAdmin)
+				r.With(middleware.RequestSize(maxImageUploadBytes)).Post("/", handlers.ToyImage.Create)
+				r.Delete("/{imageID}", handlers.ToyImage.Delete)
+			})
 		})
 	})
 
