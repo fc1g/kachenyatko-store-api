@@ -7,15 +7,16 @@ import (
 )
 
 func writeJSON(w http.ResponseWriter, code int, v any) {
-	w.Header().Set("Content-Type", "application/json")
 	data, err := json.Marshal(v)
 	if err != nil {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusInternalServerError)
 		if _, err := w.Write([]byte(http.StatusText(http.StatusInternalServerError))); err != nil {
 			return
 		}
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	if _, err := w.Write(data); err != nil {
 		return
