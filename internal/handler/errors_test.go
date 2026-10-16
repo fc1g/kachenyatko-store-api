@@ -28,6 +28,9 @@ func TestStatusFor(t *testing.T) {
 			name: "conflict maps to 409", code: apperr.CodeConflict, want: http.StatusConflict,
 		},
 		{
+			name: "payload too large maps to 413", code: apperr.CodeTooLarge, want: http.StatusRequestEntityTooLarge,
+		},
+		{
 			name: "unknown code maps to 500", code: "unkown code", want: http.StatusInternalServerError,
 		},
 	}

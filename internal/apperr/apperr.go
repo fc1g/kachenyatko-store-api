@@ -6,6 +6,7 @@ const (
 	CodeInvalid  Code = "INVALID"
 	CodeNotFound Code = "NOT_FOUND"
 	CodeConflict Code = "CONFLICT"
+	CodeTooLarge Code = "PAYLOAD_TOO_LARGE"
 )
 
 type Error struct {

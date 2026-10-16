@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+
+	"github.com/fc1g/kachenyatko-store-api/internal/apperr"
 )
 
 func writeJSON(w http.ResponseWriter, code int, v any) {
@@ -29,15 +31,9 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 	if err := decoder.Decode(v); err != nil {
 		var maxErr *http.MaxBytesError
 		if errors.As(err, &maxErr) {
-			writeJSON(w, http.StatusRequestEntityTooLarge, errorResponse{
-				Code:    "PAYLOAD_TOO_LARGE",
-				Message: "request body too large",
-			})
+			writeError(w, r, apperr.Error{Code: apperr.CodeTooLarge, Message: "request body too large", Err: err})
 		} else {
-			writeJSON(w, http.StatusBadRequest, errorResponse{
-				Code:    "INVALID",
-				Message: "invalid request body",
-			})
+			writeError(w, r, apperr.Error{Code: apperr.CodeInvalid, Message: "invalid request body", Err: err})
 		}
 		return false
 	}

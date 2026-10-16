@@ -35,6 +35,8 @@ func statusFor(code apperr.Code) int {
 		return http.StatusNotFound
 	case apperr.CodeConflict:
 		return http.StatusConflict
+	case apperr.CodeTooLarge:
+		return http.StatusRequestEntityTooLarge
 	default:
 		return http.StatusInternalServerError
 	}
