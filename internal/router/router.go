@@ -49,19 +49,27 @@ func New(logger zerolog.Logger, handlers Handlers) *chi.Mux {
 	r.Get("/readyz", handlers.Health.Ready)
 
 	r.Route("/categories", func(r chi.Router) {
-		r.Post("/", handlers.Category.Create)
 		r.Get("/", handlers.Category.GetAll)
 		r.Get("/{categoryID}", handlers.Category.GetOne)
-		r.Put("/{categoryID}", handlers.Category.Update)
-		r.Delete("/{categoryID}", handlers.Category.Delete)
+
+		r.Group(func(r chi.Router) {
+			// TODO: r.use(requireAdmin)
+			r.Post("/", handlers.Category.Create)
+			r.Put("/{categoryID}", handlers.Category.Update)
+			r.Delete("/{categoryID}", handlers.Category.Delete)
+		})
 	})
 
 	r.Route("/toys", func(r chi.Router) {
-		r.Post("/", handlers.Toy.Create)
 		r.Get("/", handlers.Toy.GetAll)
 		r.Get("/{toyID}", handlers.Toy.GetOne)
-		r.Put("/{toyID}", handlers.Toy.Update)
-		r.Delete("/{toyID}", handlers.Toy.Delete)
+
+		r.Group(func(r chi.Router) {
+			// TODO: r.use(requireAdmin)
+			r.Post("/", handlers.Toy.Create)
+			r.Put("/{toyID}", handlers.Toy.Update)
+			r.Delete("/{toyID}", handlers.Toy.Delete)
+		})
 	})
 
 	return r
