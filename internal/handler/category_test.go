@@ -22,7 +22,7 @@ import (
 
 type fakeCategoryService struct {
 	createFn func(ctx context.Context, dto service.CategoryInput) (repository.Category, error)
-	getAllFn func(ctx context.Context) ([]repository.Category, error)
+	getAllFn func(ctx context.Context, limit, offset int32) ([]repository.Category, error)
 	getOneFn func(ctx context.Context, slug string) (repository.Category, error)
 	updateFn func(ctx context.Context, id uuid.UUID, dto service.CategoryInput) (repository.Category, error)
 	deleteFn func(ctx context.Context, id uuid.UUID) error
@@ -34,8 +34,8 @@ func (f *fakeCategoryService) Create(ctx context.Context, dto service.CategoryIn
 	return f.createFn(ctx, dto)
 }
 
-func (f *fakeCategoryService) GetAll(ctx context.Context) ([]repository.Category, error) {
-	return f.getAllFn(ctx)
+func (f *fakeCategoryService) GetAll(ctx context.Context, limit, offset int32) ([]repository.Category, error) {
+	return f.getAllFn(ctx, limit, offset)
 }
 
 func (f *fakeCategoryService) GetOne(ctx context.Context, slug string) (repository.Category, error) {
@@ -136,8 +136,16 @@ func TestCategoryHandler_GetAll(t *testing.T) {
 		firstItemID := uuid.New()
 		secondItemID := uuid.New()
 
+		var wantLimit int32 = 5
+		var wantOffset int32 = 10
+
+		var gotLimit int32
+		var gotOffset int32
+
 		s := &fakeCategoryService{
-			getAllFn: func(ctx context.Context) ([]repository.Category, error) {
+			getAllFn: func(ctx context.Context, limit, offset int32) ([]repository.Category, error) {
+				gotLimit = limit
+				gotOffset = offset
 				return []repository.Category{testCategory(firstItemID), testCategory(secondItemID)}, nil
 			},
 		}
@@ -148,17 +156,19 @@ func TestCategoryHandler_GetAll(t *testing.T) {
         %s,
         %s
 		]`, testCategoryJSON(firstItemID), testCategoryJSON(secondItemID))
-		r := httptest.NewRequest(http.MethodGet, "/categories", nil)
+		r := httptest.NewRequest(http.MethodGet, "/categories?limit=5&offset=10", nil)
 
 		h.GetAll(w, r)
 
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		assert.JSONEq(t, wantBody, w.Body.String())
+		assert.Equal(t, wantLimit, gotLimit)
+		assert.Equal(t, wantOffset, gotOffset)
 	})
 	t.Run("empty array", func(t *testing.T) {
 		s := &fakeCategoryService{
-			getAllFn: func(ctx context.Context) ([]repository.Category, error) {
+			getAllFn: func(ctx context.Context, limit, offset int32) ([]repository.Category, error) {
 				return nil, nil
 			},
 		}
@@ -175,7 +185,7 @@ func TestCategoryHandler_GetAll(t *testing.T) {
 	})
 	t.Run("internal error", func(t *testing.T) {
 		s := &fakeCategoryService{
-			getAllFn: func(ctx context.Context) ([]repository.Category, error) {
+			getAllFn: func(ctx context.Context, limit, offset int32) ([]repository.Category, error) {
 				return nil, errors.New("db down")
 			},
 		}
@@ -188,6 +198,22 @@ func TestCategoryHandler_GetAll(t *testing.T) {
 
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
 		assert.Equal(t, errorResponse{Code: "INTERNAL", Message: http.StatusText(http.StatusInternalServerError)}, decodeErrorResponse(t, w))
+	})
+	t.Run("invalid query params", func(t *testing.T) {
+		s := &fakeCategoryService{}
+		h := NewCategoryHandler(s)
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/categories?limit=abc", nil)
+
+		h.GetAll(w, r)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+
+		var got errorResponse
+		require.NoError(t, json.NewDecoder(w.Body).Decode(&got))
+
+		assert.Equal(t, errorResponse{Code: "INVALID", Message: "invalid limit query param"}, got)
 	})
 }
 
