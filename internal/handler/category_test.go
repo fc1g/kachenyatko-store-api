@@ -23,7 +23,7 @@ import (
 type fakeCategoryService struct {
 	createFn func(ctx context.Context, dto service.CategoryInput) (repository.Category, error)
 	getAllFn func(ctx context.Context) ([]repository.Category, error)
-	getOneFn func(ctx context.Context, id uuid.UUID) (repository.Category, error)
+	getOneFn func(ctx context.Context, slug string) (repository.Category, error)
 	updateFn func(ctx context.Context, id uuid.UUID, dto service.CategoryInput) (repository.Category, error)
 	deleteFn func(ctx context.Context, id uuid.UUID) error
 }
@@ -38,8 +38,8 @@ func (f *fakeCategoryService) GetAll(ctx context.Context) ([]repository.Category
 	return f.getAllFn(ctx)
 }
 
-func (f *fakeCategoryService) GetOne(ctx context.Context, id uuid.UUID) (repository.Category, error) {
-	return f.getOneFn(ctx, id)
+func (f *fakeCategoryService) GetOne(ctx context.Context, slug string) (repository.Category, error) {
+	return f.getOneFn(ctx, slug)
 }
 
 func (f *fakeCategoryService) Update(ctx context.Context, id uuid.UUID, dto service.CategoryInput) (repository.Category, error) {
@@ -194,61 +194,51 @@ func TestCategoryHandler_GetAll(t *testing.T) {
 func TestCategoryHandler_GetOne(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		id := uuid.New()
-
-		var gotID uuid.UUID
+		slug := "soft-toys"
 
 		s := &fakeCategoryService{
-			getOneFn: func(ctx context.Context, id uuid.UUID) (repository.Category, error) {
-				gotID = id
-				return testCategory(id), nil
+			getOneFn: func(ctx context.Context, slug string) (repository.Category, error) {
+				return repository.Category{
+					ID:        id,
+					Name:      "Soft Toys",
+					Slug:      slug,
+					CreatedAt: testTime,
+					UpdatedAt: testTime,
+				}, nil
 			},
 		}
 		h := NewCategoryHandler(s)
 
 		w := httptest.NewRecorder()
 		wantBody := testCategoryJSON(id)
-		r := httptest.NewRequest(http.MethodGet, "/categories/"+id.String(), nil)
-		r = withURLParam(r, categoryIDParam, id.String())
+		r := httptest.NewRequest(http.MethodGet, "/categories/"+slug, nil)
+		r = withURLParam(r, "slug", slug)
 
 		h.GetOne(w, r)
 
 		assert.Equal(t, http.StatusOK, w.Code)
 
-		assert.Equal(t, id, gotID)
 		assert.JSONEq(t, wantBody, w.Body.String())
 	})
 	t.Run("not found", func(t *testing.T) {
-		id := uuid.New()
+		slug := "soft-toys"
 
 		s := &fakeCategoryService{
-			getOneFn: func(ctx context.Context, id uuid.UUID) (repository.Category, error) {
+			getOneFn: func(ctx context.Context, slug string) (repository.Category, error) {
 				return repository.Category{}, apperr.Error{Code: apperr.CodeNotFound, Message: "category not found"}
 			},
 		}
 		h := NewCategoryHandler(s)
 
 		w := httptest.NewRecorder()
-		r := httptest.NewRequest(http.MethodGet, "/categories/"+id.String(), nil)
-		r = withURLParam(r, categoryIDParam, id.String())
+		r := httptest.NewRequest(http.MethodGet, "/categories/"+slug, nil)
+		r = withURLParam(r, "slug", slug)
 
 		h.GetOne(w, r)
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
 
 		assert.Equal(t, errorResponse{Code: "NOT_FOUND", Message: "category not found"}, decodeErrorResponse(t, w))
-	})
-	t.Run("invalid ID", func(t *testing.T) {
-		h := NewCategoryHandler(&fakeCategoryService{})
-
-		w := httptest.NewRecorder()
-		r := httptest.NewRequest(http.MethodGet, "/categories/123", nil)
-		r = withURLParam(r, categoryIDParam, "123")
-
-		h.GetOne(w, r)
-
-		require.Equal(t, http.StatusBadRequest, w.Code)
-
-		assert.Equal(t, errorResponse{Code: "INVALID", Message: "invalid categoryID"}, decodeErrorResponse(t, w))
 	})
 }
 

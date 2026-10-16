@@ -50,7 +50,7 @@ func New(logger zerolog.Logger, handlers Handlers) *chi.Mux {
 
 	r.Route("/categories", func(r chi.Router) {
 		r.Get("/", handlers.Category.GetAll)
-		r.Get("/{categoryID}", handlers.Category.GetOne)
+		r.Get("/{slug}", handlers.Category.GetOne)
 
 		r.Group(func(r chi.Router) {
 			// TODO: r.use(requireAdmin)

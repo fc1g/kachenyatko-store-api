@@ -7,13 +7,14 @@ import (
 	"github.com/fc1g/kachenyatko-store-api/internal/model"
 	"github.com/fc1g/kachenyatko-store-api/internal/repository"
 	"github.com/fc1g/kachenyatko-store-api/internal/service"
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
 
 type categoryService interface {
 	Create(ctx context.Context, dto service.CategoryInput) (repository.Category, error)
 	GetAll(ctx context.Context) ([]repository.Category, error)
-	GetOne(ctx context.Context, id uuid.UUID) (repository.Category, error)
+	GetOne(ctx context.Context, slug string) (repository.Category, error)
 	Update(ctx context.Context, id uuid.UUID, dto service.CategoryInput) (repository.Category, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 }
@@ -61,13 +62,9 @@ func (h *CategoryHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CategoryHandler) GetOne(w http.ResponseWriter, r *http.Request) {
-	id, err := parseIDParam(r, categoryIDParam)
-	if err != nil {
-		writeError(w, r, err)
-		return
-	}
+	slug := chi.URLParam(r, "slug")
 
-	dbCategory, err := h.service.GetOne(r.Context(), id)
+	dbCategory, err := h.service.GetOne(r.Context(), slug)
 	if err != nil {
 		writeError(w, r, err)
 		return

@@ -18,7 +18,7 @@ import (
 type categoryRepository interface {
 	CreateCategory(ctx context.Context, arg repository.CreateCategoryParams) (repository.Category, error)
 	GetCategories(ctx context.Context) ([]repository.Category, error)
-	GetCategory(ctx context.Context, id uuid.UUID) (repository.Category, error)
+	GetCategoryBySlug(ctx context.Context, slug string) (repository.Category, error)
 	UpdateCategory(ctx context.Context, arg repository.UpdateCategoryParams) (repository.Category, error)
 	DeleteCategory(ctx context.Context, id uuid.UUID) (int64, error)
 }
@@ -65,8 +65,8 @@ func (s *CategoryService) GetAll(ctx context.Context) ([]repository.Category, er
 	return categories, nil
 }
 
-func (s *CategoryService) GetOne(ctx context.Context, id uuid.UUID) (repository.Category, error) {
-	category, err := s.repo.GetCategory(ctx, id)
+func (s *CategoryService) GetOne(ctx context.Context, slug string) (repository.Category, error) {
+	category, err := s.repo.GetCategoryBySlug(ctx, slug)
 	if err != nil {
 		return repository.Category{}, categoryError(err, "get category")
 	}
@@ -106,19 +106,11 @@ func (s *CategoryService) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 func (s *CategoryService) prepareCategory(dto CategoryInput) (name, sl string, err error) {
-	dto.Name = strings.TrimSpace(dto.Name)
 	if err := validate(s.v, dto); err != nil {
 		return dto.Name, "", err
 	}
 
-	name = dto.Name
-
-	sl = slug.Make(name)
-	if sl == "" {
-		return name, sl, apperr.Error{Code: apperr.CodeInvalid, Message: "name must contain letters or digits"}
-	}
-
-	return name, sl, nil
+	return categoryNameAndSlug(dto.Name)
 }
 
 func categoryError(err error, op string) error {
@@ -134,4 +126,15 @@ func categoryError(err error, op string) error {
 	default:
 		return fmt.Errorf("%s: %w", op, err)
 	}
+}
+
+func categoryNameAndSlug(name string) (string, string, error) {
+	name = strings.TrimSpace(name)
+
+	sl := slug.Make(name)
+	if sl == "" {
+		return name, sl, apperr.Error{Code: apperr.CodeInvalid, Message: "name must contain letters or digits"}
+	}
+
+	return name, sl, nil
 }
