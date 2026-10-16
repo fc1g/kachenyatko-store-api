@@ -22,12 +22,17 @@ type toyRepository interface {
 	DeleteToy(ctx context.Context, id uuid.UUID) (int64, error)
 }
 
+type toyStore interface {
+	toyRepository
+	InTx(ctx context.Context, fn func(q repository.Querier) error) error
+}
+
 type ToyService struct {
-	repo toyRepository
+	repo toyStore
 	v    validation.Validator
 }
 
-func NewToyService(r toyRepository, v validation.Validator) *ToyService {
+func NewToyService(r toyStore, v validation.Validator) *ToyService {
 	return &ToyService{
 		repo: r,
 		v:    v,
@@ -35,14 +40,15 @@ func NewToyService(r toyRepository, v validation.Validator) *ToyService {
 }
 
 type CreateToyInput struct {
-	CategoryID  uuid.UUID `json:"category_id" validate:"required"`
-	Name        string    `json:"name" validate:"required,max=100"`
-	Description string    `json:"description" validate:"required,max=2000"`
-	Size        string    `json:"size" validate:"required,max=50"`
-	Materials   string    `json:"materials" validate:"required,max=255"`
+	CategoryName string `json:"category_name" validate:"required,max=100"`
+	Name         string `json:"name" validate:"required,max=100"`
+	Description  string `json:"description" validate:"required,max=2000"`
+	Size         string `json:"size" validate:"required,max=50"`
+	Materials    string `json:"materials" validate:"required,max=255"`
 }
 
 func (s *ToyService) Create(ctx context.Context, dto CreateToyInput) (repository.Toy, error) {
+	dto.CategoryName = strings.TrimSpace(dto.CategoryName)
 	dto.Name = strings.TrimSpace(dto.Name)
 	dto.Description = strings.TrimSpace(dto.Description)
 	dto.Size = strings.TrimSpace(dto.Size)
@@ -51,15 +57,37 @@ func (s *ToyService) Create(ctx context.Context, dto CreateToyInput) (repository
 		return repository.Toy{}, err
 	}
 
-	toy, err := s.repo.CreateToy(ctx, repository.CreateToyParams{
-		CategoryID:  dto.CategoryID,
-		Name:        dto.Name,
-		Description: dto.Description,
-		Size:        dto.Size,
-		Materials:   dto.Materials,
+	categoryName, slug, err := categoryNameAndSlug(dto.CategoryName)
+	if err != nil {
+		return repository.Toy{}, err
+	}
+
+	var toy repository.Toy
+
+	err = s.repo.InTx(ctx, func(q repository.Querier) error {
+		category, err := q.UpsertCategory(ctx, repository.UpsertCategoryParams{
+			Name: categoryName,
+			Slug: slug,
+		})
+		if err != nil {
+			return categoryError(err, "upsert category")
+		}
+
+		toy, err = q.CreateToy(ctx, repository.CreateToyParams{
+			CategoryID:  category.ID,
+			Name:        dto.Name,
+			Description: dto.Description,
+			Size:        dto.Size,
+			Materials:   dto.Materials,
+		})
+		if err != nil {
+			return toyError(err, "create toy")
+		}
+
+		return nil
 	})
 	if err != nil {
-		return repository.Toy{}, toyError(err, "create toy")
+		return repository.Toy{}, err
 	}
 
 	return toy, nil
@@ -84,14 +112,15 @@ func (s *ToyService) GetOne(ctx context.Context, id uuid.UUID) (repository.Toy, 
 }
 
 type UpdateToyInput struct {
-	CategoryID  uuid.UUID `json:"category_id" validate:"required"`
-	Name        string    `json:"name" validate:"required,max=100"`
-	Description string    `json:"description" validate:"required,max=2000"`
-	Size        string    `json:"size" validate:"required,max=50"`
-	Materials   string    `json:"materials" validate:"required,max=255"`
+	CategoryName string `json:"category_name" validate:"required,max=100"`
+	Name         string `json:"name" validate:"required,max=100"`
+	Description  string `json:"description" validate:"required,max=2000"`
+	Size         string `json:"size" validate:"required,max=50"`
+	Materials    string `json:"materials" validate:"required,max=255"`
 }
 
 func (s *ToyService) Update(ctx context.Context, id uuid.UUID, dto UpdateToyInput) (repository.Toy, error) {
+	dto.CategoryName = strings.TrimSpace(dto.CategoryName)
 	dto.Name = strings.TrimSpace(dto.Name)
 	dto.Description = strings.TrimSpace(dto.Description)
 	dto.Size = strings.TrimSpace(dto.Size)
@@ -100,16 +129,37 @@ func (s *ToyService) Update(ctx context.Context, id uuid.UUID, dto UpdateToyInpu
 		return repository.Toy{}, err
 	}
 
-	toy, err := s.repo.UpdateToy(ctx, repository.UpdateToyParams{
-		ID:          id,
-		CategoryID:  dto.CategoryID,
-		Name:        dto.Name,
-		Description: dto.Description,
-		Size:        dto.Size,
-		Materials:   dto.Materials,
+	categoryName, slug, err := categoryNameAndSlug(dto.CategoryName)
+	if err != nil {
+		return repository.Toy{}, err
+	}
+
+	var toy repository.Toy
+
+	err = s.repo.InTx(ctx, func(q repository.Querier) error {
+		category, err := q.UpsertCategory(ctx, repository.UpsertCategoryParams{
+			Name: categoryName,
+			Slug: slug,
+		})
+		if err != nil {
+			return categoryError(err, "upsert category")
+		}
+
+		toy, err = q.UpdateToy(ctx, repository.UpdateToyParams{
+			CategoryID:  category.ID,
+			Name:        dto.Name,
+			Description: dto.Description,
+			Size:        dto.Size,
+			Materials:   dto.Materials,
+		})
+		if err != nil {
+			return toyError(err, "update toy")
+		}
+
+		return nil
 	})
 	if err != nil {
-		return repository.Toy{}, toyError(err, "update toy")
+		return repository.Toy{}, err
 	}
 
 	return toy, nil

@@ -38,7 +38,7 @@ func New(ctx context.Context, cfg *config.Config, logger zerolog.Logger, v valid
 		return nil, fmt.Errorf("ping db: %w", err)
 	}
 
-	repo := repository.New(pool)
+	repo := repository.NewStore(pool)
 
 	categoryService := service.NewCategoryService(repo, v)
 	toyService := service.NewToyService(repo, v)
