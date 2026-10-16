@@ -108,6 +108,13 @@ func TestLoad_ValidEnv(t *testing.T) {
 			IdleTimeout:       60 * time.Second,
 			ShutdownTimeout:   10 * time.Second,
 		},
+		Storage: Storage{
+			Endpoint:        "https://account-id.r2.cloudflarestorage.com",
+			AccessKeyID:     "test-access-key",
+			SecretAccessKey: "test-secret-key",
+			BucketName:      "test-bucket",
+			PublicURL:       "https://pub.example.com",
+		},
 		Logging:  Logging{Level: "info", Pretty: false},
 		Database: Database{URL: "postgres://user:pass@localhost:5432/db"},
 	}, cfg)
@@ -247,4 +254,9 @@ func setValidEnv(t *testing.T) {
 	t.Setenv("HTTP_WRITE_TIMEOUT", "")
 	t.Setenv("HTTP_IDLE_TIMEOUT", "")
 	t.Setenv("HTTP_SHUTDOWN_TIMEOUT", "")
+	t.Setenv("R2_ENDPOINT", "https://account-id.r2.cloudflarestorage.com")
+	t.Setenv("R2_ACCESS_KEY_ID", "test-access-key")
+	t.Setenv("R2_SECRET_ACCESS_KEY", "test-secret-key")
+	t.Setenv("R2_BUCKET_NAME", "test-bucket")
+	t.Setenv("R2_PUBLIC_URL", "https://pub.example.com")
 }

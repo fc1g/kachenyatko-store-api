@@ -16,6 +16,7 @@ type Config struct {
 	HTTP        HTTP
 	Logging     Logging
 	Database    Database
+	Storage     Storage
 }
 
 type HTTP struct {
@@ -34,6 +35,14 @@ type Logging struct {
 
 type Database struct {
 	URL string `validate:"required,url"`
+}
+
+type Storage struct {
+	Endpoint        string `validate:"required,url"`
+	AccessKeyID     string `validate:"required"`
+	SecretAccessKey string `validate:"required"`
+	BucketName      string `validate:"required"`
+	PublicURL       string `validate:"required,url"`
 }
 
 func Load(v validation.Validator) (*Config, error) {
@@ -72,6 +81,13 @@ func Load(v validation.Validator) (*Config, error) {
 		},
 		Database: Database{
 			URL: os.Getenv("DB_URL"),
+		},
+		Storage: Storage{
+			Endpoint:        os.Getenv("R2_ENDPOINT"),
+			AccessKeyID:     os.Getenv("R2_ACCESS_KEY_ID"),
+			SecretAccessKey: os.Getenv("R2_SECRET_ACCESS_KEY"),
+			BucketName:      os.Getenv("R2_BUCKET_NAME"),
+			PublicURL:       os.Getenv("R2_PUBLIC_URL"),
 		},
 	}
 
