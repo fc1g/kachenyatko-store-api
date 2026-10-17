@@ -22,16 +22,34 @@ func NewHealthHandler(p pinger) *HealthHandler {
 	}
 }
 
+// healthResponse is the body of health check responses.
 type healthResponse struct {
-	Status string `json:"status"`
-}
+	Status string `json:"status" enums:"OK,Service Unavailable" example:"OK"`
+} // @name HealthResponse
 
+// Live godoc
+//
+// @Summary      Liveness probe
+// @Description  Reports that the process is running. Does not check dependencies
+// @Tags         health
+// @Produce      json
+// @Success      200  {object}  healthResponse
+// @Router       /livez [get]
 func (h *HealthHandler) Live(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, healthResponse{
 		Status: http.StatusText(http.StatusOK),
 	})
 }
 
+// Ready godoc
+//
+// @Summary      Readiness probe
+// @Description  Reports whether the service can handle requests: pings the database with a 2s timeout
+// @Tags         health
+// @Produce      json
+// @Success      200  {object}  healthResponse
+// @Failure      503  {object}  healthResponse
+// @Router       /readyz [get]
 func (h *HealthHandler) Ready(w http.ResponseWriter, r *http.Request) {
 	logger := zerolog.Ctx(r.Context())
 	pingCtx, cancel := context.WithTimeout(r.Context(), time.Second*2)

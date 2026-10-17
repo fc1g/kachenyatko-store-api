@@ -31,6 +31,19 @@ func NewCategoryHandler(cs categoryService) *CategoryHandler {
 
 const categoryIDParam = "categoryID"
 
+// Create godoc
+// @Summary      Create category
+// @Description  Create a category by name; the slug is generated from the name
+// @Tags         categories
+// @Accept       json
+// @Produce      json
+// @Param        category  body      service.CategoryInput  true  "Category to create"
+// @Success      201       {object}  model.Category
+// @Failure      400       {object}  errorResponse
+// @Failure      409       {object}  errorResponse
+// @Failure      413       {object}  errorResponse
+// @Failure      500       {object}  errorResponse
+// @Router       /categories [post]
 func (h *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var dto service.CategoryInput
 	if !decodeJSON(w, r, &dto) {
@@ -46,6 +59,17 @@ func (h *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, toCategoryResponse(dbCategory))
 }
 
+// GetAll godoc
+// @Summary      List categories
+// @Description  Categories sorted by name, paginated with limit/offset
+// @Tags         categories
+// @Produce      json
+// @Param        limit   query     int  false  "Page size"                default(20) minimum(1) maximum(100)
+// @Param        offset  query     int  false  "Number of items to skip"  default(0)  minimum(0)
+// @Success      200     {array}   model.Category
+// @Failure      400     {object}  errorResponse
+// @Failure      500     {object}  errorResponse
+// @Router       /categories [get]
 func (h *CategoryHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := parsePagination(r)
 	if err != nil {
@@ -67,6 +91,17 @@ func (h *CategoryHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, categories)
 }
 
+// GetOne godoc
+//
+// @Summary      Get category
+// @Description  Get a category by its slug
+// @Tags         categories
+// @Produce      json
+// @Param        slug  path      string  true  "Category slug, e.g. soft-toys"
+// @Success      200   {object}  model.Category
+// @Failure      404   {object}  errorResponse
+// @Failure      500   {object}  errorResponse
+// @Router       /categories/{slug} [get]
 func (h *CategoryHandler) GetOne(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 
@@ -79,6 +114,22 @@ func (h *CategoryHandler) GetOne(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toCategoryResponse(dbCategory))
 }
 
+// Update godoc
+//
+// @Summary      Update category
+// @Description  Rename a category by its ID; the slug is regenerated from the new name
+// @Tags         categories
+// @Accept       json
+// @Produce      json
+// @Param        categoryID  path      string                 true  "Category ID"  format(uuid)
+// @Param        category    body      service.CategoryInput  true  "New category data"
+// @Success      200         {object}  model.Category
+// @Failure      400         {object}  errorResponse
+// @Failure      404         {object}  errorResponse
+// @Failure      409         {object}  errorResponse
+// @Failure      413         {object}  errorResponse
+// @Failure      500         {object}  errorResponse
+// @Router       /categories/{categoryID} [put]
 func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := parseIDParam(r, categoryIDParam)
 	if err != nil {
@@ -100,6 +151,19 @@ func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toCategoryResponse(dbCategory))
 }
 
+// Delete godoc
+//
+// @Summary      Delete category
+// @Description  Delete a category by its ID. Fails if the category still has toys
+// @Tags         categories
+// @Produce      json
+// @Param        categoryID  path      string  true  "Category ID"  format(uuid)
+// @Success      204         "No Content"
+// @Failure      400         {object}  errorResponse
+// @Failure      404         {object}  errorResponse
+// @Failure      409         {object}  errorResponse
+// @Failure      500         {object}  errorResponse
+// @Router       /categories/{categoryID} [delete]
 func (h *CategoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := parseIDParam(r, categoryIDParam)
 	if err != nil {

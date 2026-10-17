@@ -3,10 +3,12 @@ package router
 import (
 	"net/http"
 
+	_ "github.com/fc1g/kachenyatko-store-api/docs"
 	"github.com/fc1g/kachenyatko-store-api/internal/httpmw"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
 const (
@@ -54,6 +56,10 @@ func New(logger zerolog.Logger, handlers Handlers) *chi.Mux {
 	r.Use(middleware.RequestID)
 	r.Use(httpmw.RequestLogger(logger))
 	r.Use(middleware.Recoverer)
+
+	r.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"),
+	))
 
 	r.Get("/livez", handlers.Health.Live)
 	r.Get("/readyz", handlers.Health.Ready)

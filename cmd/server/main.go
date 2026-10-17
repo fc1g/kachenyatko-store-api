@@ -14,6 +14,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// @title Kachenyatko Store API
+// @version 1.0
+// @description API for a small handmade toy shop
+// @BasePath /
 func main() {
 	if err := run(); err != nil {
 		log.Error().Err(err).Msg("application failed")

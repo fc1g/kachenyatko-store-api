@@ -35,9 +35,11 @@ func NewCategoryService(r categoryRepository, v validation.Validator) *CategoryS
 	}
 }
 
+// CategoryInput is the request body for creating or renaming a category.
 type CategoryInput struct {
-	Name string `json:"name" validate:"required,max=100"`
-}
+	// Category name; the slug is generated from it
+	Name string `json:"name" validate:"required,max=100" minLength:"1" maxLength:"100" example:"Soft toys"`
+} // @name CategoryInput
 
 func (s *CategoryService) Create(ctx context.Context, dto CategoryInput) (repository.Category, error) {
 	name, sl, err := s.prepareCategory(dto)

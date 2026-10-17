@@ -8,10 +8,13 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// errorResponse is the body of every non-2xx response.
 type errorResponse struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-}
+	// Machine-readable error code
+	Code string `json:"code" enums:"INVALID,NOT_FOUND,CONFLICT,PAYLOAD_TOO_LARGE,INTERNAL" example:"NOT_FOUND"`
+	// Human-readable error message
+	Message string `json:"message" example:"category not found"`
+} // @name ErrorResponse
 
 func writeError(w http.ResponseWriter, r *http.Request, err error) {
 	logger := zerolog.Ctx(r.Context())

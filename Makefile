@@ -2,7 +2,7 @@
 export
 
 .SILENT:
-.PHONY: up down clean dev sqlc migrate migrate-down migrate-status psql
+.PHONY: up down clean dev sqlc migrate migrate-down migrate-status psql swag
 
 up:
 	docker compose up
@@ -30,3 +30,6 @@ migrate-status:
 
 psql:
 	docker exec -it database psql -U "$(POSTGRES_USER)" -d "$(POSTGRES_DB)"
+
+swag:
+	go tool swag init -g cmd/server/main.go -o docs --parseInternal
