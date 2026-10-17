@@ -15,6 +15,7 @@ import (
 )
 
 type toyImageRepository interface {
+	ToyExists(ctx context.Context, id uuid.UUID) (bool, error)
 	CreateImageForToy(ctx context.Context, arg repository.CreateImageForToyParams) (repository.ToyImage, error)
 	GetImagesByToyIDs(ctx context.Context, toyIds []uuid.UUID) ([]repository.ToyImage, error)
 	GetImageByID(ctx context.Context, arg repository.GetImageByIDParams) (repository.ToyImage, error)
@@ -44,6 +45,14 @@ func NewToyImageService(r toyImageStore, s imageStorage) *ToyImageService {
 }
 
 func (s *ToyImageService) Create(ctx context.Context, toyID uuid.UUID, files []ImageFile) ([]repository.ToyImage, error) {
+	exists, err := s.repo.ToyExists(ctx, toyID)
+	if err != nil {
+		return nil, fmt.Errorf("check toy exists: %w", err)
+	}
+	if !exists {
+		return nil, apperr.Error{Code: apperr.CodeNotFound, Message: "toy not found"}
+	}
+
 	if len(files) == 0 {
 		return nil, apperr.Error{Code: apperr.CodeInvalid, Message: "at least one image is required"}
 	}
@@ -77,7 +86,7 @@ func (s *ToyImageService) Create(ctx context.Context, toyID uuid.UUID, files []I
 	}
 
 	toyImages := make([]repository.ToyImage, 0, len(prepared))
-	err := s.repo.InTx(ctx, func(q repository.Querier) error {
+	err = s.repo.InTx(ctx, func(q repository.Querier) error {
 		for _, p := range prepared {
 			img, err := q.CreateImageForToy(ctx, repository.CreateImageForToyParams{
 				ToyID:      toyID,

@@ -76,50 +76,51 @@ func (q *Queries) DeleteToy(ctx context.Context, id uuid.UUID) (int64, error) {
 
 const getToy = `-- name: GetToy :one
 SELECT
-  id,
-  category_id,
-  name,
-  description,
-  size,
-  materials,
-  created_at,
-  updated_at
+  toys.id, toys.category_id, toys.name, toys.description, toys.size, toys.materials, toys.created_at, toys.updated_at,
+  categories.id, categories.name, categories.slug, categories.created_at, categories.updated_at
 FROM
   toys
+  JOIN categories ON categories.id = toys.category_id
 WHERE
-  id = $1
+  toys.id = $1
 `
 
-func (q *Queries) GetToy(ctx context.Context, id uuid.UUID) (Toy, error) {
+type GetToyRow struct {
+	Toy      Toy
+	Category Category
+}
+
+func (q *Queries) GetToy(ctx context.Context, id uuid.UUID) (GetToyRow, error) {
 	row := q.db.QueryRow(ctx, getToy, id)
-	var i Toy
+	var i GetToyRow
 	err := row.Scan(
-		&i.ID,
-		&i.CategoryID,
-		&i.Name,
-		&i.Description,
-		&i.Size,
-		&i.Materials,
-		&i.CreatedAt,
-		&i.UpdatedAt,
+		&i.Toy.ID,
+		&i.Toy.CategoryID,
+		&i.Toy.Name,
+		&i.Toy.Description,
+		&i.Toy.Size,
+		&i.Toy.Materials,
+		&i.Toy.CreatedAt,
+		&i.Toy.UpdatedAt,
+		&i.Category.ID,
+		&i.Category.Name,
+		&i.Category.Slug,
+		&i.Category.CreatedAt,
+		&i.Category.UpdatedAt,
 	)
 	return i, err
 }
 
 const getToys = `-- name: GetToys :many
 SELECT
-  id,
-  category_id,
-  name,
-  description,
-  size,
-  materials,
-  created_at,
-  updated_at
+  toys.id, toys.category_id, toys.name, toys.description, toys.size, toys.materials, toys.created_at, toys.updated_at,
+  categories.id, categories.name, categories.slug, categories.created_at, categories.updated_at
 FROM
   toys
+  JOIN categories ON categories.id = toys.category_id
 ORDER BY
-  created_at DESC, id
+  toys.created_at DESC,
+  toys.id
 LIMIT $1 OFFSET $2
 `
 
@@ -128,24 +129,34 @@ type GetToysParams struct {
 	Offset int32
 }
 
-func (q *Queries) GetToys(ctx context.Context, arg GetToysParams) ([]Toy, error) {
+type GetToysRow struct {
+	Toy      Toy
+	Category Category
+}
+
+func (q *Queries) GetToys(ctx context.Context, arg GetToysParams) ([]GetToysRow, error) {
 	rows, err := q.db.Query(ctx, getToys, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Toy{}
+	items := []GetToysRow{}
 	for rows.Next() {
-		var i Toy
+		var i GetToysRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.CategoryID,
-			&i.Name,
-			&i.Description,
-			&i.Size,
-			&i.Materials,
-			&i.CreatedAt,
-			&i.UpdatedAt,
+			&i.Toy.ID,
+			&i.Toy.CategoryID,
+			&i.Toy.Name,
+			&i.Toy.Description,
+			&i.Toy.Size,
+			&i.Toy.Materials,
+			&i.Toy.CreatedAt,
+			&i.Toy.UpdatedAt,
+			&i.Category.ID,
+			&i.Category.Name,
+			&i.Category.Slug,
+			&i.Category.CreatedAt,
+			&i.Category.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -155,6 +166,25 @@ func (q *Queries) GetToys(ctx context.Context, arg GetToysParams) ([]Toy, error)
 		return nil, err
 	}
 	return items, nil
+}
+
+const toyExists = `-- name: ToyExists :one
+SELECT
+  EXISTS (
+    SELECT
+      1
+    FROM
+      toys
+    WHERE
+      id = $1
+  )
+`
+
+func (q *Queries) ToyExists(ctx context.Context, id uuid.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, toyExists, id)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const updateToy = `-- name: UpdateToy :one

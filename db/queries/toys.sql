@@ -17,34 +17,36 @@ RETURNING
 
 -- name: GetToys :many
 SELECT
-  id,
-  category_id,
-  name,
-  description,
-  size,
-  materials,
-  created_at,
-  updated_at
+  sqlc.embed(toys),
+  sqlc.embed(categories)
 FROM
   toys
+  JOIN categories ON categories.id = toys.category_id
 ORDER BY
-  created_at DESC, id
+  toys.created_at DESC,
+  toys.id
 LIMIT $1 OFFSET $2;
 
 -- name: GetToy :one
 SELECT
-  id,
-  category_id,
-  name,
-  description,
-  size,
-  materials,
-  created_at,
-  updated_at
+  sqlc.embed(toys),
+  sqlc.embed(categories)
 FROM
   toys
+  JOIN categories ON categories.id = toys.category_id
 WHERE
-  id = $1;
+  toys.id = $1;
+
+-- name: ToyExists :one
+SELECT
+  EXISTS (
+    SELECT
+      1
+    FROM
+      toys
+    WHERE
+      id = $1
+  );
 
 -- name: UpdateToy :one
 UPDATE

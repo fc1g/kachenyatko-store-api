@@ -10,6 +10,7 @@ import (
 	"github.com/fc1g/kachenyatko-store-api/internal/repository"
 	"github.com/fc1g/kachenyatko-store-api/internal/service"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 )
 
 type toyImageService interface {
@@ -40,6 +41,22 @@ const (
 	maxMemory       = 1 << 20
 )
 
+// Create godoc
+//
+// @Summary      Upload toy images
+// @Description  Upload 1-10 images (JPEG, PNG or WebP, up to 5 MB each) in the "images" field. New images are appended after existing ones
+// @Tags         toy_images
+// @Accept       multipart/form-data
+// @Produce      json
+// @Param        toyID   path      string  true  "Toy ID"  format(uuid)
+// @Param        images  formData  file    true  "Image files (repeat the field to upload several)"
+// @Success      201     {array}   model.ToyImage
+// @Failure      400     {object}  errorResponse
+// @Failure      404     {object}  errorResponse
+// @Failure      409     {object}  errorResponse
+// @Failure      413     {object}  errorResponse
+// @Failure      500     {object}  errorResponse
+// @Router       /toys/{toyID}/images [post]
 func (h *ToyImageHandler) Create(w http.ResponseWriter, r *http.Request) {
 	toyID, err := parseIDParam(r, toyIDParam)
 	if err != nil {
@@ -67,7 +84,11 @@ func (h *ToyImageHandler) Create(w http.ResponseWriter, r *http.Request) {
 			writeError(w, r, err)
 			return
 		}
-		defer file.Close()
+		defer func() {
+			if err := file.Close(); err != nil {
+				zerolog.Ctx(r.Context()).Warn().Err(err).Msg("close uploaded file")
+			}
+		}()
 
 		files = append(files, service.ImageFile{Body: file, Size: fh.Size})
 	}
@@ -80,12 +101,23 @@ func (h *ToyImageHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	toyImages := make([]model.ToyImage, 0, len(dbToyImages))
 	for _, dbToyImage := range dbToyImages {
-		toyImages = append(toyImages, h.toResponse(dbToyImage))
+		toyImages = append(toyImages, toToyImageResponse(dbToyImage, h.urls))
 	}
 
 	writeJSON(w, http.StatusCreated, toyImages)
 }
 
+// GetAll godoc
+//
+// @Summary      List toy images
+// @Description  All images of a toy, sorted by position. Returns an empty array if the toy has no images or does not exist
+// @Tags         toy_images
+// @Produce      json
+// @Param        toyID  path      string  true  "Toy ID"  format(uuid)
+// @Success      200    {array}   model.ToyImage
+// @Failure      400    {object}  errorResponse
+// @Failure      500    {object}  errorResponse
+// @Router       /toys/{toyID}/images [get]
 func (h *ToyImageHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	toyID, err := parseIDParam(r, toyIDParam)
 	if err != nil {
@@ -101,12 +133,25 @@ func (h *ToyImageHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 
 	toyImages := make([]model.ToyImage, 0, len(dbToyImages))
 	for _, dbToyImage := range dbToyImages {
-		toyImages = append(toyImages, h.toResponse(dbToyImage))
+		toyImages = append(toyImages, toToyImageResponse(dbToyImage, h.urls))
 	}
 
 	writeJSON(w, http.StatusOK, toyImages)
 }
 
+// GetOne godoc
+//
+// @Summary      Get toy image
+// @Description  Get an image of a toy by its ID
+// @Tags         toy_images
+// @Produce      json
+// @Param        toyID    path      string  true  "Toy ID"    format(uuid)
+// @Param        imageID  path      string  true  "Image ID"  format(uuid)
+// @Success      200      {object}  model.ToyImage
+// @Failure      400      {object}  errorResponse
+// @Failure      404      {object}  errorResponse
+// @Failure      500      {object}  errorResponse
+// @Router       /toys/{toyID}/images/{imageID} [get]
 func (h *ToyImageHandler) GetOne(w http.ResponseWriter, r *http.Request) {
 	toyID, err := parseIDParam(r, toyIDParam)
 	if err != nil {
@@ -126,9 +171,22 @@ func (h *ToyImageHandler) GetOne(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, h.toResponse(dbToyImage))
+	writeJSON(w, http.StatusOK, toToyImageResponse(dbToyImage, h.urls))
 }
 
+// Delete godoc
+//
+// @Summary      Delete toy image
+// @Description  Delete an image of a toy by its ID. The image file is also removed from storage
+// @Tags         toy_images
+// @Produce      json
+// @Param        toyID    path      string  true  "Toy ID"    format(uuid)
+// @Param        imageID  path      string  true  "Image ID"  format(uuid)
+// @Success      204      "No Content"
+// @Failure      400      {object}  errorResponse
+// @Failure      404      {object}  errorResponse
+// @Failure      500      {object}  errorResponse
+// @Router       /toys/{toyID}/images/{imageID} [delete]
 func (h *ToyImageHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	toyID, err := parseIDParam(r, toyIDParam)
 	if err != nil {
@@ -151,11 +209,11 @@ func (h *ToyImageHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *ToyImageHandler) toResponse(i repository.ToyImage) model.ToyImage {
+func toToyImageResponse(i repository.ToyImage, urls urlBuilder) model.ToyImage {
 	return model.ToyImage{
 		ID:        i.ID,
 		ToyID:     i.ToyID,
-		URL:       h.urls.URL(i.StorageKey),
+		URL:       urls.URL(i.StorageKey),
 		Position:  int(i.Position),
 		CreatedAt: i.CreatedAt,
 		UpdatedAt: i.UpdatedAt,

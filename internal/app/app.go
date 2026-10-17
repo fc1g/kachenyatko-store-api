@@ -60,7 +60,7 @@ func New(ctx context.Context, cfg *config.Config, logger zerolog.Logger, v valid
 
 	healthHandler := handler.NewHealthHandler(pool)
 	categoryHandler := handler.NewCategoryHandler(categoryService)
-	toyHandler := handler.NewToyHandler(toyService)
+	toyHandler := handler.NewToyHandler(toyService, r2)
 	toyImageHandler := handler.NewToyImageHandler(toyImageService, r2)
 	r := router.New(logger, router.Handlers{
 		Health:   healthHandler,
