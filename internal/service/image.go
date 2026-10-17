@@ -1,12 +1,15 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/fc1g/kachenyatko-store-api/internal/apperr"
+	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
 )
 
 type ImageFile struct {
@@ -14,7 +17,18 @@ type ImageFile struct {
 	Size int64
 }
 
-const maxImageSize = 5 << 20
+type preparedImage struct {
+	file        ImageFile
+	key         string
+	contentType string
+}
+
+const (
+	maxImageSize        = 5 << 20
+	maxImagesPerRequest = 10
+	maxParallelDeletes  = 4
+	maxParallelUploads  = 4
+)
 
 var imageExtensions = map[string]string{
 	"image/jpeg": ".jpg",
@@ -48,4 +62,21 @@ func detectImage(file ImageFile) (contentType, ext string, err error) {
 	}
 
 	return contentType, ext, nil
+}
+
+func deleteImages(ctx context.Context, s imageStorage, keys []string) {
+	cleanupCtx := context.WithoutCancel(ctx)
+
+	var g errgroup.Group
+	g.SetLimit(maxParallelDeletes)
+
+	for _, key := range keys {
+		g.Go(func() error {
+			return s.Delete(cleanupCtx, key)
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		zerolog.Ctx(ctx).Warn().Err(err).Msg("delete toy images from storage")
+	}
 }

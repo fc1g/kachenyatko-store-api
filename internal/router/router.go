@@ -11,7 +11,7 @@ import (
 
 const (
 	maxBodyBytes        = 1 << 20
-	maxImageUploadBytes = 6 << 20
+	maxImageUploadBytes = 51 << 20
 )
 
 type healthHandler interface {

@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
+	"golang.org/x/sync/errgroup"
 )
 
 type toyImageRepository interface {
@@ -25,40 +26,76 @@ type imageStorage interface {
 	Delete(ctx context.Context, key string) error
 }
 
+type toyImageStore interface {
+	toyImageRepository
+	InTx(ctx context.Context, fn func(q repository.Querier) error) error
+}
+
 type ToyImageService struct {
-	repo    toyImageRepository
+	repo    toyImageStore
 	storage imageStorage
 }
 
-func NewToyImageService(r toyImageRepository, s imageStorage) *ToyImageService {
+func NewToyImageService(r toyImageStore, s imageStorage) *ToyImageService {
 	return &ToyImageService{
 		repo:    r,
 		storage: s,
 	}
 }
 
-func (s *ToyImageService) Create(ctx context.Context, toyID uuid.UUID, file ImageFile) (repository.ToyImage, error) {
-	contentType, ext, err := detectImage(file)
-	if err != nil {
-		return repository.ToyImage{}, err
+func (s *ToyImageService) Create(ctx context.Context, toyID uuid.UUID, files []ImageFile) ([]repository.ToyImage, error) {
+	if len(files) == 0 {
+		return nil, apperr.Error{Code: apperr.CodeInvalid, Message: "at least one image is required"}
 	}
 
-	key := fmt.Sprintf("toys/%s/%s%s", toyID, uuid.NewString(), ext)
-	err = s.storage.Upload(ctx, key, file.Body, contentType)
-	if err != nil {
-		return repository.ToyImage{}, fmt.Errorf("upload image: %w", err)
+	if len(files) > maxImagesPerRequest {
+		return nil, apperr.Error{Code: apperr.CodeInvalid, Message: fmt.Sprintf("at most %d images per request", maxImagesPerRequest)}
 	}
 
-	toyImage, err := s.repo.CreateImageForToy(ctx, repository.CreateImageForToyParams{
-		ToyID:      toyID,
-		StorageKey: key,
+	prepared := make([]preparedImage, 0, len(files))
+	keys := make([]string, 0, len(files))
+	for _, f := range files {
+		contentType, ext, err := detectImage(f)
+		if err != nil {
+			return nil, err
+		}
+		key := fmt.Sprintf("toys/%s/%s%s", toyID, uuid.NewString(), ext)
+		keys = append(keys, key)
+		prepared = append(prepared, preparedImage{file: f, key: key, contentType: contentType})
+	}
+
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(maxParallelUploads)
+	for _, p := range prepared {
+		g.Go(func() error {
+			return s.storage.Upload(gctx, p.key, p.file.Body, p.contentType)
+		})
+	}
+	if err := g.Wait(); err != nil {
+		deleteImages(ctx, s.storage, keys)
+		return nil, fmt.Errorf("upload images: %w", err)
+	}
+
+	toyImages := make([]repository.ToyImage, 0, len(prepared))
+	err := s.repo.InTx(ctx, func(q repository.Querier) error {
+		for _, p := range prepared {
+			img, err := q.CreateImageForToy(ctx, repository.CreateImageForToyParams{
+				ToyID:      toyID,
+				StorageKey: p.key,
+			})
+			if err != nil {
+				return toyImageError(err, "create toy image")
+			}
+			toyImages = append(toyImages, img)
+		}
+		return nil
 	})
 	if err != nil {
-		_ = s.storage.Delete(context.WithoutCancel(ctx), key)
-		return repository.ToyImage{}, toyImageError(err, "create toy image")
+		deleteImages(ctx, s.storage, keys)
+		return nil, err
 	}
 
-	return toyImage, nil
+	return toyImages, nil
 }
 
 func (s *ToyImageService) GetAll(ctx context.Context, toyID uuid.UUID) ([]repository.ToyImage, error) {
@@ -91,7 +128,7 @@ func (s *ToyImageService) Delete(ctx context.Context, toyID uuid.UUID, id uuid.U
 		return toyImageError(err, "delete toy image")
 	}
 
-	_ = s.storage.Delete(context.WithoutCancel(ctx), key)
+	deleteImages(ctx, s.storage, []string{key})
 
 	return nil
 }

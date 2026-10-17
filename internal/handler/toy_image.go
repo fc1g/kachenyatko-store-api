@@ -13,7 +13,7 @@ import (
 )
 
 type toyImageService interface {
-	Create(ctx context.Context, toyID uuid.UUID, file service.ImageFile) (repository.ToyImage, error)
+	Create(ctx context.Context, toyID uuid.UUID, files []service.ImageFile) ([]repository.ToyImage, error)
 	GetAll(ctx context.Context, toyID uuid.UUID) ([]repository.ToyImage, error)
 	GetOne(ctx context.Context, toyID uuid.UUID, id uuid.UUID) (repository.ToyImage, error)
 	Delete(ctx context.Context, toyID uuid.UUID, id uuid.UUID) error
@@ -59,24 +59,31 @@ func (h *ToyImageHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, header, err := r.FormFile("image")
-	if err != nil {
-		if errors.Is(err, http.ErrMissingFile) {
-			writeError(w, r, apperr.Error{Code: apperr.CodeInvalid, Message: "image is required", Err: err})
+	headers := r.MultipartForm.File["images"]
+	files := make([]service.ImageFile, 0, len(headers))
+	for _, fh := range headers {
+		file, err := fh.Open()
+		if err != nil {
+			writeError(w, r, err)
 			return
 		}
-		writeError(w, r, err)
-		return
-	}
-	defer file.Close()
+		defer file.Close()
 
-	dbToyImage, err := h.service.Create(r.Context(), toyID, service.ImageFile{Body: file, Size: header.Size})
+		files = append(files, service.ImageFile{Body: file, Size: fh.Size})
+	}
+
+	dbToyImages, err := h.service.Create(r.Context(), toyID, files)
 	if err != nil {
 		writeError(w, r, err)
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, h.toResponse(dbToyImage))
+	toyImages := make([]model.ToyImage, 0, len(dbToyImages))
+	for _, dbToyImage := range dbToyImages {
+		toyImages = append(toyImages, h.toResponse(dbToyImage))
+	}
+
+	writeJSON(w, http.StatusCreated, toyImages)
 }
 
 func (h *ToyImageHandler) GetAll(w http.ResponseWriter, r *http.Request) {

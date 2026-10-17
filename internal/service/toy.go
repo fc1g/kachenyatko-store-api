@@ -28,14 +28,16 @@ type toyStore interface {
 }
 
 type ToyService struct {
-	repo toyStore
-	v    validation.Validator
+	repo    toyStore
+	storage imageStorage
+	v       validation.Validator
 }
 
-func NewToyService(r toyStore, v validation.Validator) *ToyService {
+func NewToyService(r toyStore, s imageStorage, v validation.Validator) *ToyService {
 	return &ToyService{
-		repo: r,
-		v:    v,
+		repo:    r,
+		storage: s,
+		v:       v,
 	}
 }
 
@@ -169,14 +171,30 @@ func (s *ToyService) Update(ctx context.Context, id uuid.UUID, dto UpdateToyInpu
 }
 
 func (s *ToyService) Delete(ctx context.Context, id uuid.UUID) error {
-	count, err := s.repo.DeleteToy(ctx, id)
+	var keys []string
+	err := s.repo.InTx(ctx, func(q repository.Querier) error {
+		storageKeys, err := q.DeleteImagesByToyID(ctx, id)
+		if err != nil {
+			return toyError(err, "delete toy images")
+		}
+		keys = storageKeys
+
+		count, err := q.DeleteToy(ctx, id)
+		if err != nil {
+			return toyError(err, "delete toy")
+		}
+
+		if count == 0 {
+			return apperr.Error{Code: apperr.CodeNotFound, Message: "toy not found"}
+		}
+
+		return nil
+	})
 	if err != nil {
-		return toyError(err, "delete toy")
+		return err
 	}
 
-	if count == 0 {
-		return apperr.Error{Code: apperr.CodeNotFound, Message: "toy not found"}
-	}
+	deleteImages(ctx, s.storage, keys)
 
 	return nil
 }

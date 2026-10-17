@@ -55,7 +55,7 @@ func New(ctx context.Context, cfg *config.Config, logger zerolog.Logger, v valid
 	repo := repository.NewStore(pool)
 
 	categoryService := service.NewCategoryService(repo, v)
-	toyService := service.NewToyService(repo, v)
+	toyService := service.NewToyService(repo, r2, v)
 	toyImageService := service.NewToyImageService(repo, r2)
 
 	healthHandler := handler.NewHealthHandler(pool)
