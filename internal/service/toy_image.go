@@ -2,29 +2,22 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
 
 	"github.com/fc1g/kachenyatko-store-api/internal/apperr"
 	"github.com/fc1g/kachenyatko-store-api/internal/repository"
 	"github.com/google/uuid"
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5"
 	"golang.org/x/sync/errgroup"
 )
 
+const toyImagesPrefix = "toys"
+
 type toyImageRepository interface {
 	ToyExists(ctx context.Context, id uuid.UUID) (bool, error)
-	CreateImageForToy(ctx context.Context, arg repository.CreateImageForToyParams) (repository.ToyImage, error)
-	GetImagesByToyIDs(ctx context.Context, toyIds []uuid.UUID) ([]repository.ToyImage, error)
-	GetImageByID(ctx context.Context, arg repository.GetImageByIDParams) (repository.ToyImage, error)
+	CreateToyImage(ctx context.Context, arg repository.CreateToyImageParams) (repository.ToyImage, error)
+	GetToyImagesByToyIDs(ctx context.Context, toyIds []uuid.UUID) ([]repository.ToyImage, error)
+	GetToyImage(ctx context.Context, arg repository.GetToyImageParams) (repository.ToyImage, error)
 	DeleteToyImage(ctx context.Context, arg repository.DeleteToyImageParams) (string, error)
-}
-
-type imageStorage interface {
-	Upload(ctx context.Context, key string, body io.Reader, contentType string) error
-	Delete(ctx context.Context, key string) error
 }
 
 type toyImageStore interface {
@@ -45,20 +38,20 @@ func NewToyImageService(r toyImageStore, s imageStorage) *ToyImageService {
 }
 
 func (s *ToyImageService) Create(ctx context.Context, toyID uuid.UUID, files []ImageFile) ([]repository.ToyImage, error) {
+	if len(files) == 0 {
+		return nil, apperr.Error{Code: apperr.CodeInvalid, Message: "at least one image is required"}
+	}
+
+	if len(files) > MaxImagesPerRequest {
+		return nil, apperr.Error{Code: apperr.CodeInvalid, Message: fmt.Sprintf("at most %d images per request", MaxImagesPerRequest)}
+	}
+
 	exists, err := s.repo.ToyExists(ctx, toyID)
 	if err != nil {
 		return nil, fmt.Errorf("check toy exists: %w", err)
 	}
 	if !exists {
 		return nil, apperr.Error{Code: apperr.CodeNotFound, Message: "toy not found"}
-	}
-
-	if len(files) == 0 {
-		return nil, apperr.Error{Code: apperr.CodeInvalid, Message: "at least one image is required"}
-	}
-
-	if len(files) > maxImagesPerRequest {
-		return nil, apperr.Error{Code: apperr.CodeInvalid, Message: fmt.Sprintf("at most %d images per request", maxImagesPerRequest)}
 	}
 
 	prepared := make([]preparedImage, 0, len(files))
@@ -68,7 +61,7 @@ func (s *ToyImageService) Create(ctx context.Context, toyID uuid.UUID, files []I
 		if err != nil {
 			return nil, err
 		}
-		key := fmt.Sprintf("toys/%s/%s%s", toyID, uuid.NewString(), ext)
+		key := imageStorageKey(toyID, ext)
 		keys = append(keys, key)
 		prepared = append(prepared, preparedImage{file: f, key: key, contentType: contentType})
 	}
@@ -88,7 +81,7 @@ func (s *ToyImageService) Create(ctx context.Context, toyID uuid.UUID, files []I
 	toyImages := make([]repository.ToyImage, 0, len(prepared))
 	err = s.repo.InTx(ctx, func(q repository.Querier) error {
 		for _, p := range prepared {
-			img, err := q.CreateImageForToy(ctx, repository.CreateImageForToyParams{
+			img, err := q.CreateToyImage(ctx, repository.CreateToyImageParams{
 				ToyID:      toyID,
 				StorageKey: p.key,
 			})
@@ -108,7 +101,7 @@ func (s *ToyImageService) Create(ctx context.Context, toyID uuid.UUID, files []I
 }
 
 func (s *ToyImageService) GetAll(ctx context.Context, toyID uuid.UUID) ([]repository.ToyImage, error) {
-	toyImages, err := s.repo.GetImagesByToyIDs(ctx, []uuid.UUID{toyID})
+	toyImages, err := s.repo.GetToyImagesByToyIDs(ctx, []uuid.UUID{toyID})
 	if err != nil {
 		return nil, toyImageError(err, "get toy images")
 	}
@@ -117,7 +110,7 @@ func (s *ToyImageService) GetAll(ctx context.Context, toyID uuid.UUID) ([]reposi
 }
 
 func (s *ToyImageService) GetOne(ctx context.Context, toyID uuid.UUID, id uuid.UUID) (repository.ToyImage, error) {
-	toyImage, err := s.repo.GetImageByID(ctx, repository.GetImageByIDParams{
+	toyImage, err := s.repo.GetToyImage(ctx, repository.GetToyImageParams{
 		ToyID: toyID,
 		ID:    id,
 	})
@@ -142,17 +135,6 @@ func (s *ToyImageService) Delete(ctx context.Context, toyID uuid.UUID, id uuid.U
 	return nil
 }
 
-func toyImageError(err error, op string) error {
-	if errors.Is(err, pgx.ErrNoRows) {
-		return apperr.Error{Code: apperr.CodeNotFound, Message: "toy image not found", Err: err}
-	}
-
-	switch pgErrorCode(err) {
-	case pgerrcode.UniqueViolation:
-		return apperr.Error{Code: apperr.CodeConflict, Message: "image for this toy with this position already exists", Err: err}
-	case pgerrcode.ForeignKeyViolation:
-		return apperr.Error{Code: apperr.CodeNotFound, Message: "toy not found", Err: err}
-	default:
-		return fmt.Errorf("%s: %w", op, err)
-	}
+func imageStorageKey(toyID uuid.UUID, ext string) string {
+	return fmt.Sprintf("%s/%s/%s%s", toyImagesPrefix, toyID, uuid.NewString(), ext)
 }

@@ -405,7 +405,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/CreateToyInput"
+                            "$ref": "#/definitions/ToyInput"
                         }
                     }
                 ],
@@ -511,7 +511,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/UpdateToyInput"
+                            "$ref": "#/definitions/ToyInput"
                         }
                     }
                 ],
@@ -859,50 +859,6 @@ const docTemplate = `{
                 }
             }
         },
-        "CreateToyInput": {
-            "type": "object",
-            "required": [
-                "category_name",
-                "description",
-                "materials",
-                "name",
-                "size"
-            ],
-            "properties": {
-                "category_name": {
-                    "description": "Category name; the category is created if it does not exist",
-                    "type": "string",
-                    "maxLength": 100,
-                    "minLength": 1,
-                    "example": "Soft toys"
-                },
-                "description": {
-                    "type": "string",
-                    "maxLength": 2000,
-                    "minLength": 1,
-                    "example": "Soft plush bear, safe for children from 3 years"
-                },
-                "materials": {
-                    "type": "string",
-                    "maxLength": 255,
-                    "minLength": 1,
-                    "example": "Cotton, polyester filling"
-                },
-                "name": {
-                    "type": "string",
-                    "maxLength": 100,
-                    "minLength": 1,
-                    "example": "Teddy bear"
-                },
-                "size": {
-                    "description": "Free-form size, e.g. dimensions in centimeters",
-                    "type": "string",
-                    "maxLength": 50,
-                    "minLength": 1,
-                    "example": "25x15 cm"
-                }
-            }
-        },
         "ErrorResponse": {
             "type": "object",
             "properties": {
@@ -1035,7 +991,7 @@ const docTemplate = `{
                 }
             }
         },
-        "UpdateToyInput": {
+        "ToyInput": {
             "type": "object",
             "required": [
                 "category_name",

@@ -7,10 +7,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+const dbPingTimeout = 2 * time.Second
 
 type fakePinger struct {
 	pingFn func(ctx context.Context) error
@@ -26,7 +29,7 @@ func TestHealthHandler_Live(t *testing.T) {
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodGet, "/livez", nil)
 
-	h := NewHealthHandler(&fakePinger{})
+	h := NewHealthHandler(&fakePinger{}, dbPingTimeout)
 
 	h.Live(w, r)
 
@@ -46,7 +49,7 @@ func TestHealthHandler_Ready(t *testing.T) {
 				return nil
 			},
 		}
-		h := NewHealthHandler(p)
+		h := NewHealthHandler(p, dbPingTimeout)
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodGet, "/readyz", nil)
@@ -67,7 +70,7 @@ func TestHealthHandler_Ready(t *testing.T) {
 				return errors.New("db down")
 			},
 		}
-		h := NewHealthHandler(p)
+		h := NewHealthHandler(p, dbPingTimeout)
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodGet, "/readyz", nil)

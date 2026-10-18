@@ -26,57 +26,21 @@ type App struct {
 }
 
 func New(ctx context.Context, cfg *config.Config, logger zerolog.Logger, v validation.Validator) (*App, error) {
-	pool, err := pgxpool.New(ctx, cfg.Database.URL)
+	pool, err := newDB(ctx, cfg.Database)
 	if err != nil {
-		return nil, fmt.Errorf("create db pool: %w", err)
+		return nil, err
 	}
 
-	pingCtx, cancel := context.WithTimeout(ctx, time.Second*2)
-	defer cancel()
-
-	if err := pool.Ping(pingCtx); err != nil {
-		pool.Close()
-		return nil, fmt.Errorf("ping db: %w", err)
-	}
-
-	r2, err := storage.NewR2(
-		ctx,
-		cfg.Storage.Endpoint,
-		cfg.Storage.AccessKeyID,
-		cfg.Storage.SecretAccessKey,
-		cfg.Storage.BucketName,
-		cfg.Storage.PublicURL,
-	)
+	r2, err := newStorage(ctx, cfg.Storage)
 	if err != nil {
 		pool.Close()
-		return nil, fmt.Errorf("init r2 storage: %w", err)
+		return nil, err
 	}
 
-	repo := repository.NewStore(pool)
+	handlers := newHandlers(pool, r2, v, cfg.Database.PingTimeout)
+	r := router.New(logger, handlers)
 
-	categoryService := service.NewCategoryService(repo, v)
-	toyService := service.NewToyService(repo, r2, v)
-	toyImageService := service.NewToyImageService(repo, r2)
-
-	healthHandler := handler.NewHealthHandler(pool)
-	categoryHandler := handler.NewCategoryHandler(categoryService)
-	toyHandler := handler.NewToyHandler(toyService, r2)
-	toyImageHandler := handler.NewToyImageHandler(toyImageService, r2)
-	r := router.New(logger, router.Handlers{
-		Health:   healthHandler,
-		Category: categoryHandler,
-		Toy:      toyHandler,
-		ToyImage: toyImageHandler,
-	})
-
-	server := &http.Server{
-		Addr:              fmt.Sprintf(":%d", cfg.HTTP.Port),
-		Handler:           r,
-		ReadHeaderTimeout: cfg.HTTP.ReadHeaderTimeout,
-		ReadTimeout:       cfg.HTTP.ReadTimeout,
-		WriteTimeout:      cfg.HTTP.WriteTimeout,
-		IdleTimeout:       cfg.HTTP.IdleTimeout,
-	}
+	server := newHTTPServer(cfg.HTTP, r)
 
 	return &App{
 		logger:          logger,
@@ -117,4 +81,65 @@ func (a *App) Run(ctx context.Context, stop context.CancelFunc) error {
 
 func (a *App) Close() {
 	a.db.Close()
+}
+
+func newDB(ctx context.Context, cfg config.Database) (*pgxpool.Pool, error) {
+	pool, err := pgxpool.New(ctx, cfg.URL)
+	if err != nil {
+		return nil, fmt.Errorf("create db pool: %w", err)
+	}
+
+	pingCtx, cancel := context.WithTimeout(ctx, cfg.PingTimeout)
+	defer cancel()
+
+	if err := pool.Ping(pingCtx); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("ping db: %w", err)
+	}
+
+	return pool, nil
+}
+
+func newStorage(ctx context.Context, cfg config.Storage) (*storage.R2, error) {
+	r2, err := storage.NewR2(
+		ctx,
+		storage.R2Config{
+			Endpoint:        cfg.Endpoint,
+			AccessKeyID:     cfg.AccessKeyID,
+			SecretAccessKey: cfg.SecretAccessKey,
+			Bucket:          cfg.BucketName,
+			PublicURL:       cfg.PublicURL,
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("init r2 storage: %w", err)
+	}
+
+	return r2, nil
+}
+
+func newHandlers(pool *pgxpool.Pool, r2 *storage.R2, v validation.Validator, dbPingTimeout time.Duration) router.Handlers {
+	repo := repository.NewStore(pool)
+
+	categoryService := service.NewCategoryService(repo, v)
+	toyService := service.NewToyService(repo, r2, v)
+	toyImageService := service.NewToyImageService(repo, r2)
+
+	return router.Handlers{
+		Health:   handler.NewHealthHandler(pool, dbPingTimeout),
+		Category: handler.NewCategoryHandler(categoryService),
+		Toy:      handler.NewToyHandler(toyService, r2),
+		ToyImage: handler.NewToyImageHandler(toyImageService, r2),
+	}
+}
+
+func newHTTPServer(cfg config.HTTP, h http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              fmt.Sprintf(":%d", cfg.Port),
+		Handler:           h,
+		ReadHeaderTimeout: cfg.ReadHeaderTimeout,
+		ReadTimeout:       cfg.ReadTimeout,
+		WriteTimeout:      cfg.WriteTimeout,
+		IdleTimeout:       cfg.IdleTimeout,
+	}
 }

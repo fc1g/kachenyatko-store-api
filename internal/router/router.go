@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	_ "github.com/fc1g/kachenyatko-store-api/docs"
+	"github.com/fc1g/kachenyatko-store-api/internal/handler"
 	"github.com/fc1g/kachenyatko-store-api/internal/httpmw"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -11,10 +12,7 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
-const (
-	maxBodyBytes        = 1 << 20
-	maxImageUploadBytes = 51 << 20
-)
+const maxBodyBytes = 1 << 20
 
 type healthHandler interface {
 	Live(w http.ResponseWriter, r *http.Request)
@@ -95,7 +93,7 @@ func New(logger zerolog.Logger, handlers Handlers) *chi.Mux {
 
 			r.Group(func(r chi.Router) {
 				// TODO: r.use(requireAdmin)
-				r.With(middleware.RequestSize(maxImageUploadBytes)).Post("/", handlers.ToyImage.Create)
+				r.With(middleware.RequestSize(handler.MaxImageUploadBytes)).Post("/", handlers.ToyImage.Create)
 				r.Delete("/{imageID}", handlers.ToyImage.Delete)
 			})
 		})

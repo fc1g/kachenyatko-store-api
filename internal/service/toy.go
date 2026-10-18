@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -10,12 +9,10 @@ import (
 	"github.com/fc1g/kachenyatko-store-api/internal/repository"
 	"github.com/fc1g/kachenyatko-store-api/internal/validation"
 	"github.com/google/uuid"
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5"
 )
 
 type toyRepository interface {
-	GetImagesByToyIDs(ctx context.Context, toyIds []uuid.UUID) ([]repository.ToyImage, error)
+	GetToyImagesByToyIDs(ctx context.Context, toyIds []uuid.UUID) ([]repository.ToyImage, error)
 	CreateToy(ctx context.Context, arg repository.CreateToyParams) (repository.Toy, error)
 	GetToys(ctx context.Context, arg repository.GetToysParams) ([]repository.GetToysRow, error)
 	GetToy(ctx context.Context, id uuid.UUID) (repository.GetToyRow, error)
@@ -49,8 +46,8 @@ type ToyDetails struct {
 	Images   []repository.ToyImage
 }
 
-// CreateToyInput is the request body for creating a toy.
-type CreateToyInput struct {
+// ToyInput is the request body for creating a toy or replacing all of its fields.
+type ToyInput struct {
 	// Category name; the category is created if it does not exist
 	CategoryName string `json:"category_name" validate:"required,max=100" minLength:"1" maxLength:"100" example:"Soft toys"`
 	Name         string `json:"name" validate:"required,max=100" minLength:"1" maxLength:"100" example:"Teddy bear"`
@@ -58,19 +55,24 @@ type CreateToyInput struct {
 	// Free-form size, e.g. dimensions in centimeters
 	Size      string `json:"size" validate:"required,max=50" minLength:"1" maxLength:"50" example:"25x15 cm"`
 	Materials string `json:"materials" validate:"required,max=255" minLength:"1" maxLength:"255" example:"Cotton, polyester filling"`
-} // @name CreateToyInput
+} // @name ToyInput
 
-func (s *ToyService) Create(ctx context.Context, dto CreateToyInput) (ToyDetails, error) {
-	dto.CategoryName = strings.TrimSpace(dto.CategoryName)
-	dto.Name = strings.TrimSpace(dto.Name)
-	dto.Description = strings.TrimSpace(dto.Description)
-	dto.Size = strings.TrimSpace(dto.Size)
-	dto.Materials = strings.TrimSpace(dto.Materials)
-	if err := validate(s.v, dto); err != nil {
+func (in *ToyInput) normalize() {
+	in.CategoryName = strings.TrimSpace(in.CategoryName)
+	in.Name = strings.TrimSpace(in.Name)
+	in.Description = strings.TrimSpace(in.Description)
+	in.Size = strings.TrimSpace(in.Size)
+	in.Materials = strings.TrimSpace(in.Materials)
+}
+
+func (s *ToyService) Create(ctx context.Context, input ToyInput) (ToyDetails, error) {
+	input.normalize()
+
+	if err := validate(s.v, input); err != nil {
 		return ToyDetails{}, err
 	}
 
-	categoryName, slug, err := categoryNameAndSlug(dto.CategoryName)
+	slug, err := categorySlug(input.CategoryName)
 	if err != nil {
 		return ToyDetails{}, err
 	}
@@ -80,7 +82,7 @@ func (s *ToyService) Create(ctx context.Context, dto CreateToyInput) (ToyDetails
 
 	err = s.repo.InTx(ctx, func(q repository.Querier) error {
 		category, err = q.UpsertCategory(ctx, repository.UpsertCategoryParams{
-			Name: categoryName,
+			Name: input.CategoryName,
 			Slug: slug,
 		})
 		if err != nil {
@@ -89,10 +91,10 @@ func (s *ToyService) Create(ctx context.Context, dto CreateToyInput) (ToyDetails
 
 		toy, err = q.CreateToy(ctx, repository.CreateToyParams{
 			CategoryID:  category.ID,
-			Name:        dto.Name,
-			Description: dto.Description,
-			Size:        dto.Size,
-			Materials:   dto.Materials,
+			Name:        input.Name,
+			Description: input.Description,
+			Size:        input.Size,
+			Materials:   input.Materials,
 		})
 		if err != nil {
 			return toyError(err, "create toy")
@@ -128,7 +130,7 @@ func (s *ToyService) GetAll(ctx context.Context, limit, offset int32) ([]ToyDeta
 		ids = append(ids, row.Toy.ID)
 	}
 
-	images, err := s.repo.GetImagesByToyIDs(ctx, ids)
+	images, err := s.repo.GetToyImagesByToyIDs(ctx, ids)
 	if err != nil {
 		return nil, fmt.Errorf("get toy images: %w", err)
 	}
@@ -156,7 +158,7 @@ func (s *ToyService) GetOne(ctx context.Context, id uuid.UUID) (ToyDetails, erro
 		return ToyDetails{}, toyError(err, "get toy")
 	}
 
-	images, err := s.repo.GetImagesByToyIDs(ctx, []uuid.UUID{id})
+	images, err := s.repo.GetToyImagesByToyIDs(ctx, []uuid.UUID{id})
 	if err != nil {
 		return ToyDetails{}, fmt.Errorf("get toy images: %w", err)
 	}
@@ -168,28 +170,14 @@ func (s *ToyService) GetOne(ctx context.Context, id uuid.UUID) (ToyDetails, erro
 	}, nil
 }
 
-// UpdateToyInput is the request body for replacing all fields of a toy.
-type UpdateToyInput struct {
-	// Category name; the category is created if it does not exist
-	CategoryName string `json:"category_name" validate:"required,max=100" minLength:"1" maxLength:"100" example:"Soft toys"`
-	Name         string `json:"name" validate:"required,max=100" minLength:"1" maxLength:"100" example:"Teddy bear"`
-	Description  string `json:"description" validate:"required,max=2000" minLength:"1" maxLength:"2000" example:"Soft plush bear, safe for children from 3 years"`
-	// Free-form size, e.g. dimensions in centimeters
-	Size      string `json:"size" validate:"required,max=50" minLength:"1" maxLength:"50" example:"25x15 cm"`
-	Materials string `json:"materials" validate:"required,max=255" minLength:"1" maxLength:"255" example:"Cotton, polyester filling"`
-} // @name UpdateToyInput
+func (s *ToyService) Update(ctx context.Context, id uuid.UUID, input ToyInput) (ToyDetails, error) {
+	input.normalize()
 
-func (s *ToyService) Update(ctx context.Context, id uuid.UUID, dto UpdateToyInput) (ToyDetails, error) {
-	dto.CategoryName = strings.TrimSpace(dto.CategoryName)
-	dto.Name = strings.TrimSpace(dto.Name)
-	dto.Description = strings.TrimSpace(dto.Description)
-	dto.Size = strings.TrimSpace(dto.Size)
-	dto.Materials = strings.TrimSpace(dto.Materials)
-	if err := validate(s.v, dto); err != nil {
+	if err := validate(s.v, input); err != nil {
 		return ToyDetails{}, err
 	}
 
-	categoryName, slug, err := categoryNameAndSlug(dto.CategoryName)
+	slug, err := categorySlug(input.CategoryName)
 	if err != nil {
 		return ToyDetails{}, err
 	}
@@ -199,7 +187,7 @@ func (s *ToyService) Update(ctx context.Context, id uuid.UUID, dto UpdateToyInpu
 	var images []repository.ToyImage
 	err = s.repo.InTx(ctx, func(q repository.Querier) error {
 		category, err = q.UpsertCategory(ctx, repository.UpsertCategoryParams{
-			Name: categoryName,
+			Name: input.CategoryName,
 			Slug: slug,
 		})
 		if err != nil {
@@ -209,16 +197,16 @@ func (s *ToyService) Update(ctx context.Context, id uuid.UUID, dto UpdateToyInpu
 		toy, err = q.UpdateToy(ctx, repository.UpdateToyParams{
 			ID:          id,
 			CategoryID:  category.ID,
-			Name:        dto.Name,
-			Description: dto.Description,
-			Size:        dto.Size,
-			Materials:   dto.Materials,
+			Name:        input.Name,
+			Description: input.Description,
+			Size:        input.Size,
+			Materials:   input.Materials,
 		})
 		if err != nil {
 			return toyError(err, "update toy")
 		}
 
-		images, err = q.GetImagesByToyIDs(ctx, []uuid.UUID{id})
+		images, err = q.GetToyImagesByToyIDs(ctx, []uuid.UUID{id})
 		if err != nil {
 			return fmt.Errorf("get toy images: %w", err)
 		}
@@ -239,7 +227,7 @@ func (s *ToyService) Update(ctx context.Context, id uuid.UUID, dto UpdateToyInpu
 func (s *ToyService) Delete(ctx context.Context, id uuid.UUID) error {
 	var keys []string
 	err := s.repo.InTx(ctx, func(q repository.Querier) error {
-		storageKeys, err := q.DeleteImagesByToyID(ctx, id)
+		storageKeys, err := q.DeleteToyImagesByToyID(ctx, id)
 		if err != nil {
 			return toyError(err, "delete toy images")
 		}
@@ -263,17 +251,4 @@ func (s *ToyService) Delete(ctx context.Context, id uuid.UUID) error {
 	deleteImages(ctx, s.storage, keys)
 
 	return nil
-}
-
-func toyError(err error, op string) error {
-	if errors.Is(err, pgx.ErrNoRows) {
-		return apperr.Error{Code: apperr.CodeNotFound, Message: "toy not found", Err: err}
-	}
-
-	switch pgErrorCode(err) {
-	case pgerrcode.ForeignKeyViolation:
-		return apperr.Error{Code: apperr.CodeInvalid, Message: "category not found", Err: err}
-	default:
-		return fmt.Errorf("%s: %w", op, err)
-	}
 }

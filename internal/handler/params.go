@@ -3,11 +3,30 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/fc1g/kachenyatko-store-api/internal/apperr"
+	"github.com/fc1g/kachenyatko-store-api/internal/service"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+)
+
+const (
+	CategoryIDParam   = "categoryID"
+	CategorySlugParam = "slug"
+	ToyIDParam        = "toyID"
+	ToyImageIDParam   = "imageID"
+	ImagesFormField   = "images"
+)
+
+const multipartOverhead = 1 << 20
+const MaxImageUploadBytes = service.MaxImagesPerRequest*service.MaxImageSize + multipartOverhead
+
+const (
+	defaultLimit  = 20
+	maxLimit      = 100
+	defaultOffset = 0
 )
 
 func parseIDParam(r *http.Request, name string) (uuid.UUID, error) {
@@ -18,36 +37,17 @@ func parseIDParam(r *http.Request, name string) (uuid.UUID, error) {
 	return id, nil
 }
 
-const (
-	defaultLimit  = 20
-	maxLimit      = 100
-	defaultOffset = 0
-)
-
-func parsePagination(r *http.Request) (limit, offset int32, err error) {
+func parsePagination(r *http.Request) (int32, int32, error) {
 	q := r.URL.Query()
 
-	limitStr := q.Get("limit")
-	offsetStr := q.Get("offset")
-
-	if limitStr == "" {
-		limit = defaultLimit
-	} else {
-		n, err := strconv.ParseInt(limitStr, 10, 32)
-		if err != nil {
-			return 0, 0, apperr.Error{Code: apperr.CodeInvalid, Message: "invalid limit query param", Err: err}
-		}
-		limit = int32(n)
+	limit, err := parseInt32Query(q, "limit", defaultLimit)
+	if err != nil {
+		return 0, 0, err
 	}
 
-	if offsetStr == "" {
-		offset = defaultOffset
-	} else {
-		n, err := strconv.ParseInt(offsetStr, 10, 32)
-		if err != nil {
-			return 0, 0, apperr.Error{Code: apperr.CodeInvalid, Message: "invalid offset query param", Err: err}
-		}
-		offset = int32(n)
+	offset, err := parseInt32Query(q, "offset", defaultOffset)
+	if err != nil {
+		return 0, 0, err
 	}
 
 	if limit < 1 {
@@ -63,4 +63,18 @@ func parsePagination(r *http.Request) (limit, offset int32, err error) {
 	}
 
 	return limit, offset, nil
+}
+
+func parseInt32Query(q url.Values, key string, def int32) (int32, error) {
+	valStr := q.Get(key)
+	if valStr == "" {
+		return def, nil
+	}
+
+	n, err := strconv.ParseInt(valStr, 10, 32)
+	if err != nil {
+		return 0, apperr.Error{Code: apperr.CodeInvalid, Message: fmt.Sprintf("invalid %s query param", key), Err: err}
+	}
+
+	return int32(n), nil
 }

@@ -13,19 +13,16 @@ type pinger interface {
 }
 
 type HealthHandler struct {
-	pinger pinger
+	pinger        pinger
+	dbPingTimeout time.Duration
 }
 
-func NewHealthHandler(p pinger) *HealthHandler {
+func NewHealthHandler(p pinger, d time.Duration) *HealthHandler {
 	return &HealthHandler{
-		pinger: p,
+		pinger:        p,
+		dbPingTimeout: d,
 	}
 }
-
-// healthResponse is the body of health check responses.
-type healthResponse struct {
-	Status string `json:"status" enums:"OK,Service Unavailable" example:"OK"`
-} // @name HealthResponse
 
 // Live godoc
 //
@@ -52,7 +49,7 @@ func (h *HealthHandler) Live(w http.ResponseWriter, r *http.Request) {
 // @Router       /readyz [get]
 func (h *HealthHandler) Ready(w http.ResponseWriter, r *http.Request) {
 	logger := zerolog.Ctx(r.Context())
-	pingCtx, cancel := context.WithTimeout(r.Context(), time.Second*2)
+	pingCtx, cancel := context.WithTimeout(r.Context(), h.dbPingTimeout)
 	defer cancel()
 
 	if err := h.pinger.Ping(pingCtx); err != nil {

@@ -28,7 +28,10 @@ func TestStatusFor(t *testing.T) {
 			name: "conflict maps to 409", code: apperr.CodeConflict, want: http.StatusConflict,
 		},
 		{
-			name: "payload too large maps to 413", code: apperr.CodeTooLarge, want: http.StatusRequestEntityTooLarge,
+			name: "payload too large maps to 413", code: apperr.CodePayloadTooLarge, want: http.StatusRequestEntityTooLarge,
+		},
+		{
+			name: "internal maps to 500", code: apperr.CodeInternal, want: http.StatusInternalServerError,
 		},
 		{
 			name: "unknown code maps to 500", code: "unkown code", want: http.StatusInternalServerError,
@@ -55,7 +58,7 @@ func TestWriteError(t *testing.T) {
 			name: "app error uses its code and message", err: apperr.Error{Code: apperr.CodeNotFound, Message: "toy not found"}, wantStatus: http.StatusNotFound, wantBody: errorResponse{Code: "NOT_FOUND", Message: "toy not found"},
 		},
 		{
-			name: "unknown error uses internal server code and message", err: errors.New("db password is ******"), wantStatus: http.StatusInternalServerError, wantBody: errorResponse{Code: "INTERNAL", Message: http.StatusText(http.StatusInternalServerError)},
+			name: "unknown error uses internal server code and message", err: errors.New("db password is ******"), wantStatus: http.StatusInternalServerError, wantBody: errorResponse{Code: string(apperr.CodeInternal), Message: http.StatusText(http.StatusInternalServerError)},
 		},
 	}
 
@@ -69,7 +72,7 @@ func TestWriteError(t *testing.T) {
 			writeError(w, r, tt.err)
 
 			assert.Equal(tt.wantStatus, w.Code)
-			assert.Equal("application/json", w.Header().Get("Content-Type"))
+			assert.Equal(contentTypeJSON, w.Header().Get("Content-Type"))
 
 			var got errorResponse
 			require.NoError(t, json.NewDecoder(w.Body).Decode(&got))

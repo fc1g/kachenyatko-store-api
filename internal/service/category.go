@@ -2,17 +2,13 @@ package service
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/fc1g/kachenyatko-store-api/internal/apperr"
 	"github.com/fc1g/kachenyatko-store-api/internal/repository"
 	"github.com/fc1g/kachenyatko-store-api/internal/validation"
 	"github.com/google/uuid"
-	"github.com/gosimple/slug"
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5"
+	gosimple "github.com/gosimple/slug"
 )
 
 type categoryRepository interface {
@@ -41,15 +37,15 @@ type CategoryInput struct {
 	Name string `json:"name" validate:"required,max=100" minLength:"1" maxLength:"100" example:"Soft toys"`
 } // @name CategoryInput
 
-func (s *CategoryService) Create(ctx context.Context, dto CategoryInput) (repository.Category, error) {
-	name, sl, err := s.prepareCategory(dto)
+func (s *CategoryService) Create(ctx context.Context, input CategoryInput) (repository.Category, error) {
+	name, slug, err := s.prepareCategory(input)
 	if err != nil {
 		return repository.Category{}, err
 	}
 
 	category, err := s.repo.CreateCategory(ctx, repository.CreateCategoryParams{
 		Name: name,
-		Slug: sl,
+		Slug: slug,
 	})
 	if err != nil {
 		return repository.Category{}, categoryError(err, "create category")
@@ -79,8 +75,8 @@ func (s *CategoryService) GetOne(ctx context.Context, slug string) (repository.C
 	return category, nil
 }
 
-func (s *CategoryService) Update(ctx context.Context, id uuid.UUID, dto CategoryInput) (repository.Category, error) {
-	name, sl, err := s.prepareCategory(dto)
+func (s *CategoryService) Update(ctx context.Context, id uuid.UUID, input CategoryInput) (repository.Category, error) {
+	name, slug, err := s.prepareCategory(input)
 	if err != nil {
 		return repository.Category{}, err
 	}
@@ -88,7 +84,7 @@ func (s *CategoryService) Update(ctx context.Context, id uuid.UUID, dto Category
 	category, err := s.repo.UpdateCategory(ctx, repository.UpdateCategoryParams{
 		ID:   id,
 		Name: name,
-		Slug: sl,
+		Slug: slug,
 	})
 	if err != nil {
 		return repository.Category{}, categoryError(err, "update category")
@@ -110,37 +106,25 @@ func (s *CategoryService) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (s *CategoryService) prepareCategory(dto CategoryInput) (name, sl string, err error) {
-	dto.Name = strings.TrimSpace(dto.Name)
-	if err := validate(s.v, dto); err != nil {
-		return dto.Name, "", err
+func (s *CategoryService) prepareCategory(input CategoryInput) (name, slug string, err error) {
+	name = strings.TrimSpace(input.Name)
+	if err = validate(s.v, CategoryInput{Name: name}); err != nil {
+		return "", "", err
 	}
 
-	return categoryNameAndSlug(dto.Name)
+	slug, err = categorySlug(name)
+	if err != nil {
+		return "", "", err
+	}
+
+	return name, slug, nil
 }
 
-func categoryError(err error, op string) error {
-	if errors.Is(err, pgx.ErrNoRows) {
-		return apperr.Error{Code: apperr.CodeNotFound, Message: "category not found", Err: err}
+func categorySlug(name string) (string, error) {
+	slug := gosimple.Make(name)
+	if slug == "" {
+		return slug, apperr.Error{Code: apperr.CodeInvalid, Message: "name must contain letters or digits"}
 	}
 
-	switch pgErrorCode(err) {
-	case pgerrcode.UniqueViolation:
-		return apperr.Error{Code: apperr.CodeConflict, Message: "category with this name already exists", Err: err}
-	case pgerrcode.ForeignKeyViolation:
-		return apperr.Error{Code: apperr.CodeConflict, Message: "category has toys", Err: err}
-	default:
-		return fmt.Errorf("%s: %w", op, err)
-	}
-}
-
-func categoryNameAndSlug(name string) (string, string, error) {
-	name = strings.TrimSpace(name)
-
-	sl := slug.Make(name)
-	if sl == "" {
-		return name, sl, apperr.Error{Code: apperr.CodeInvalid, Message: "name must contain letters or digits"}
-	}
-
-	return name, sl, nil
+	return slug, nil
 }

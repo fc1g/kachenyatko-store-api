@@ -12,6 +12,28 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// keep in sync with swagger in handler/toy_image.go.
+const (
+	MaxImageSize        = 5 << 20
+	MaxImagesPerRequest = 10
+
+	maxParallelDeletes = 4
+	maxParallelUploads = 4
+
+	imageHeaderSize = 512
+)
+
+var imageExtensions = map[string]string{
+	"image/jpeg": ".jpg",
+	"image/png":  ".png",
+	"image/webp": ".webp",
+}
+
+type imageStorage interface {
+	Upload(ctx context.Context, key string, body io.Reader, contentType string) error
+	Delete(ctx context.Context, key string) error
+}
+
 type ImageFile struct {
 	Body io.ReadSeeker
 	Size int64
@@ -23,29 +45,16 @@ type preparedImage struct {
 	contentType string
 }
 
-const (
-	maxImageSize        = 5 << 20
-	maxImagesPerRequest = 10
-	maxParallelDeletes  = 4
-	maxParallelUploads  = 4
-)
-
-var imageExtensions = map[string]string{
-	"image/jpeg": ".jpg",
-	"image/png":  ".png",
-	"image/webp": ".webp",
-}
-
 func detectImage(file ImageFile) (contentType, ext string, err error) {
 	if file.Size <= 0 {
 		return "", "", apperr.Error{Code: apperr.CodeInvalid, Message: "image is empty"}
 	}
 
-	if file.Size > maxImageSize {
-		return "", "", apperr.Error{Code: apperr.CodeInvalid, Message: "image must be at most 5 MB"}
+	if file.Size > MaxImageSize {
+		return "", "", apperr.Error{Code: apperr.CodeInvalid, Message: fmt.Sprintf("image must be at most %d MB", MaxImageSize>>20)}
 	}
 
-	head := make([]byte, 512)
+	head := make([]byte, imageHeaderSize)
 	n, err := io.ReadFull(file.Body, head)
 	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
 		return "", "", fmt.Errorf("read image: %w", err)

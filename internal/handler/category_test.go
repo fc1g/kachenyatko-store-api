@@ -197,7 +197,7 @@ func TestCategoryHandler_GetAll(t *testing.T) {
 		h.GetAll(w, r)
 
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
-		assert.Equal(t, errorResponse{Code: "INTERNAL", Message: http.StatusText(http.StatusInternalServerError)}, decodeErrorResponse(t, w))
+		assert.Equal(t, errorResponse{Code: string(apperr.CodeInternal), Message: http.StatusText(http.StatusInternalServerError)}, decodeErrorResponse(t, w))
 	})
 	t.Run("invalid query params", func(t *testing.T) {
 		s := &fakeCategoryService{}
@@ -289,7 +289,7 @@ func TestCategoryHandler_Update(t *testing.T) {
 		reqBody := `{"name":"Soft Toys"}`
 		wantBody := testCategoryJSON(id)
 		r := httptest.NewRequest(http.MethodPut, "/categories/"+id.String(), strings.NewReader(reqBody))
-		r = withURLParam(r, categoryIDParam, id.String())
+		r = withURLParam(r, CategoryIDParam, id.String())
 
 		h.Update(w, r)
 
@@ -309,7 +309,7 @@ func TestCategoryHandler_Update(t *testing.T) {
 		w := httptest.NewRecorder()
 		reqBody := `{"name":`
 		r := httptest.NewRequest(http.MethodPut, "/categories/"+id.String(), strings.NewReader(reqBody))
-		r = withURLParam(r, categoryIDParam, id.String())
+		r = withURLParam(r, CategoryIDParam, id.String())
 
 		h.Update(w, r)
 
@@ -334,7 +334,7 @@ func TestCategoryHandler_Update(t *testing.T) {
 		w := httptest.NewRecorder()
 		reqBody := `{"name":""}`
 		r := httptest.NewRequest(http.MethodPut, "/categories/"+id.String(), strings.NewReader(reqBody))
-		r = withURLParam(r, categoryIDParam, id.String())
+		r = withURLParam(r, CategoryIDParam, id.String())
 
 		h.Update(w, r)
 
@@ -357,7 +357,7 @@ func TestCategoryHandler_Update(t *testing.T) {
 		w := httptest.NewRecorder()
 		reqBody := `{"name":"Soft Toys"}`
 		r := httptest.NewRequest(http.MethodPut, "/categories/"+id.String(), strings.NewReader(reqBody))
-		r = withURLParam(r, categoryIDParam, id.String())
+		r = withURLParam(r, CategoryIDParam, id.String())
 
 		h.Update(w, r)
 
@@ -370,7 +370,7 @@ func TestCategoryHandler_Update(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodPut, "/categories/123", nil)
-		r = withURLParam(r, categoryIDParam, "123")
+		r = withURLParam(r, CategoryIDParam, "123")
 
 		h.Update(w, r)
 
@@ -396,7 +396,7 @@ func TestCategoryHandler_Delete(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodDelete, "/categories/"+id.String(), nil)
-		r = withURLParam(r, categoryIDParam, id.String())
+		r = withURLParam(r, CategoryIDParam, id.String())
 
 		h.Delete(w, r)
 
@@ -416,7 +416,7 @@ func TestCategoryHandler_Delete(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodDelete, "/categories/"+id.String(), nil)
-		r = withURLParam(r, categoryIDParam, id.String())
+		r = withURLParam(r, CategoryIDParam, id.String())
 
 		h.Delete(w, r)
 
@@ -429,7 +429,7 @@ func TestCategoryHandler_Delete(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodDelete, "/categories/123", nil)
-		r = withURLParam(r, categoryIDParam, "123")
+		r = withURLParam(r, CategoryIDParam, "123")
 
 		h.Delete(w, r)
 

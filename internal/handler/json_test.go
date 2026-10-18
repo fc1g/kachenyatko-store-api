@@ -24,7 +24,7 @@ func TestWriteJSON_WritesBodyAndStatus(t *testing.T) {
 	writeJSON(w, http.StatusCreated, testPayload{Name: "John Doe", Age: 31})
 
 	assert.Equal(http.StatusCreated, w.Code)
-	assert.Equal("application/json", w.Header().Get("Content-Type"))
+	assert.Equal(contentTypeJSON, w.Header().Get("Content-Type"))
 	assert.JSONEq(`{"name":"John Doe","age":31}`, w.Body.String())
 }
 
@@ -36,7 +36,7 @@ func TestWriteJSON_UnmarshalableValueReturns500(t *testing.T) {
 	writeJSON(w, http.StatusOK, make(chan int))
 
 	assert.Equal(http.StatusInternalServerError, w.Code)
-	assert.Equal("text/plain; charset=utf-8", w.Header().Get("Content-Type"))
+	assert.Equal(contentTypeText, w.Header().Get("Content-Type"))
 	assert.Equal(http.StatusText(http.StatusInternalServerError), w.Body.String())
 }
 

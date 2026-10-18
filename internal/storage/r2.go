@@ -12,27 +12,39 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
+const (
+	r2Region = "auto"
+)
+
 type R2 struct {
 	client    *s3.Client
 	bucket    string
 	publicURL string
 }
 
-func NewR2(ctx context.Context, endpoint, accessKeyID, secretAccessKey, bucket, publicURL string) (*R2, error) {
-	cfg, err := config.LoadDefaultConfig(ctx, config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKeyID, secretAccessKey, "")), config.WithRegion("auto"))
+type R2Config struct {
+	Endpoint        string
+	AccessKeyID     string
+	SecretAccessKey string
+	Bucket          string
+	PublicURL       string
+}
+
+func NewR2(ctx context.Context, c R2Config) (*R2, error) {
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(c.AccessKeyID, c.SecretAccessKey, "")), config.WithRegion(r2Region))
 	if err != nil {
 		return nil, fmt.Errorf("load r2 config: %w", err)
 	}
 
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
-		o.BaseEndpoint = aws.String(endpoint)
+		o.BaseEndpoint = aws.String(c.Endpoint)
 		o.UsePathStyle = true
 	})
 
 	return &R2{
 		client:    client,
-		bucket:    bucket,
-		publicURL: strings.TrimRight(publicURL, "/"),
+		bucket:    c.Bucket,
+		publicURL: strings.TrimRight(c.PublicURL, "/"),
 	}, nil
 }
 

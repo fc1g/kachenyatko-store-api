@@ -3,10 +3,11 @@ package apperr
 type Code string
 
 const (
-	CodeInvalid  Code = "INVALID"
-	CodeNotFound Code = "NOT_FOUND"
-	CodeConflict Code = "CONFLICT"
-	CodeTooLarge Code = "PAYLOAD_TOO_LARGE"
+	CodeInvalid         Code = "INVALID"
+	CodeNotFound        Code = "NOT_FOUND"
+	CodeConflict        Code = "CONFLICT"
+	CodePayloadTooLarge Code = "PAYLOAD_TOO_LARGE"
+	CodeInternal        Code = "INTERNAL"
 )
 
 type Error struct {

@@ -2,16 +2,15 @@ package handler
 
 import (
 	"context"
-	"errors"
 	"net/http"
 
-	"github.com/fc1g/kachenyatko-store-api/internal/apperr"
-	"github.com/fc1g/kachenyatko-store-api/internal/model"
 	"github.com/fc1g/kachenyatko-store-api/internal/repository"
 	"github.com/fc1g/kachenyatko-store-api/internal/service"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
+
+const multipartMaxMemory = 1 << 20
 
 type toyImageService interface {
 	Create(ctx context.Context, toyID uuid.UUID, files []service.ImageFile) ([]repository.ToyImage, error)
@@ -20,26 +19,17 @@ type toyImageService interface {
 	Delete(ctx context.Context, toyID uuid.UUID, id uuid.UUID) error
 }
 
-type urlBuilder interface {
-	URL(key string) string
-}
-
 type ToyImageHandler struct {
 	service toyImageService
 	urls    urlBuilder
 }
 
-func NewToyImageHandler(tis toyImageService, ub urlBuilder) *ToyImageHandler {
+func NewToyImageHandler(svc toyImageService, urls urlBuilder) *ToyImageHandler {
 	return &ToyImageHandler{
-		service: tis,
-		urls:    ub,
+		service: svc,
+		urls:    urls,
 	}
 }
-
-const (
-	toyImageIDParam = "imageID"
-	maxMemory       = 1 << 20
-)
 
 // Create godoc
 //
@@ -50,7 +40,7 @@ const (
 // @Produce      json
 // @Param        toyID   path      string  true  "Toy ID"  format(uuid)
 // @Param        images  formData  file    true  "Image files (repeat the field to upload several)"
-// @Success      201     {array}   model.ToyImage
+// @Success      201     {array}   toyImageResponse
 // @Failure      400     {object}  errorResponse
 // @Failure      404     {object}  errorResponse
 // @Failure      409     {object}  errorResponse
@@ -58,25 +48,19 @@ const (
 // @Failure      500     {object}  errorResponse
 // @Router       /toys/{toyID}/images [post]
 func (h *ToyImageHandler) Create(w http.ResponseWriter, r *http.Request) {
-	toyID, err := parseIDParam(r, toyIDParam)
+	toyID, err := parseIDParam(r, ToyIDParam)
 	if err != nil {
 		writeError(w, r, err)
 		return
 	}
 
-	err = r.ParseMultipartForm(maxMemory)
+	err = r.ParseMultipartForm(multipartMaxMemory)
 	if err != nil {
-		var maxErr *http.MaxBytesError
-		if errors.As(err, &maxErr) {
-			writeError(w, r, apperr.Error{Code: apperr.CodeTooLarge, Message: "request body too large", Err: err})
-			return
-		}
-
-		writeError(w, r, apperr.Error{Code: apperr.CodeInvalid, Message: "invalid multipart form", Err: err})
+		writeError(w, r, requestBodyError(err, "invalid multipart form"))
 		return
 	}
 
-	headers := r.MultipartForm.File["images"]
+	headers := r.MultipartForm.File[ImagesFormField]
 	files := make([]service.ImageFile, 0, len(headers))
 	for _, fh := range headers {
 		file, err := fh.Open()
@@ -93,18 +77,13 @@ func (h *ToyImageHandler) Create(w http.ResponseWriter, r *http.Request) {
 		files = append(files, service.ImageFile{Body: file, Size: fh.Size})
 	}
 
-	dbToyImages, err := h.service.Create(r.Context(), toyID, files)
+	images, err := h.service.Create(r.Context(), toyID, files)
 	if err != nil {
 		writeError(w, r, err)
 		return
 	}
 
-	toyImages := make([]model.ToyImage, 0, len(dbToyImages))
-	for _, dbToyImage := range dbToyImages {
-		toyImages = append(toyImages, toToyImageResponse(dbToyImage, h.urls))
-	}
-
-	writeJSON(w, http.StatusCreated, toyImages)
+	writeJSON(w, http.StatusCreated, toToyImageResponses(images, h.urls))
 }
 
 // GetAll godoc
@@ -114,29 +93,24 @@ func (h *ToyImageHandler) Create(w http.ResponseWriter, r *http.Request) {
 // @Tags         toy_images
 // @Produce      json
 // @Param        toyID  path      string  true  "Toy ID"  format(uuid)
-// @Success      200    {array}   model.ToyImage
+// @Success      200    {array}   toyImageResponse
 // @Failure      400    {object}  errorResponse
 // @Failure      500    {object}  errorResponse
 // @Router       /toys/{toyID}/images [get]
 func (h *ToyImageHandler) GetAll(w http.ResponseWriter, r *http.Request) {
-	toyID, err := parseIDParam(r, toyIDParam)
+	toyID, err := parseIDParam(r, ToyIDParam)
 	if err != nil {
 		writeError(w, r, err)
 		return
 	}
 
-	dbToyImages, err := h.service.GetAll(r.Context(), toyID)
+	images, err := h.service.GetAll(r.Context(), toyID)
 	if err != nil {
 		writeError(w, r, err)
 		return
 	}
 
-	toyImages := make([]model.ToyImage, 0, len(dbToyImages))
-	for _, dbToyImage := range dbToyImages {
-		toyImages = append(toyImages, toToyImageResponse(dbToyImage, h.urls))
-	}
-
-	writeJSON(w, http.StatusOK, toyImages)
+	writeJSON(w, http.StatusOK, toToyImageResponses(images, h.urls))
 }
 
 // GetOne godoc
@@ -147,31 +121,31 @@ func (h *ToyImageHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 // @Produce      json
 // @Param        toyID    path      string  true  "Toy ID"    format(uuid)
 // @Param        imageID  path      string  true  "Image ID"  format(uuid)
-// @Success      200      {object}  model.ToyImage
+// @Success      200      {object}  toyImageResponse
 // @Failure      400      {object}  errorResponse
 // @Failure      404      {object}  errorResponse
 // @Failure      500      {object}  errorResponse
 // @Router       /toys/{toyID}/images/{imageID} [get]
 func (h *ToyImageHandler) GetOne(w http.ResponseWriter, r *http.Request) {
-	toyID, err := parseIDParam(r, toyIDParam)
+	toyID, err := parseIDParam(r, ToyIDParam)
 	if err != nil {
 		writeError(w, r, err)
 		return
 	}
 
-	imageID, err := parseIDParam(r, toyImageIDParam)
+	imageID, err := parseIDParam(r, ToyImageIDParam)
 	if err != nil {
 		writeError(w, r, err)
 		return
 	}
 
-	dbToyImage, err := h.service.GetOne(r.Context(), toyID, imageID)
+	image, err := h.service.GetOne(r.Context(), toyID, imageID)
 	if err != nil {
 		writeError(w, r, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toToyImageResponse(dbToyImage, h.urls))
+	writeJSON(w, http.StatusOK, toToyImageResponse(image, h.urls))
 }
 
 // Delete godoc
@@ -188,13 +162,13 @@ func (h *ToyImageHandler) GetOne(w http.ResponseWriter, r *http.Request) {
 // @Failure      500      {object}  errorResponse
 // @Router       /toys/{toyID}/images/{imageID} [delete]
 func (h *ToyImageHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	toyID, err := parseIDParam(r, toyIDParam)
+	toyID, err := parseIDParam(r, ToyIDParam)
 	if err != nil {
 		writeError(w, r, err)
 		return
 	}
 
-	imageID, err := parseIDParam(r, toyImageIDParam)
+	imageID, err := parseIDParam(r, ToyImageIDParam)
 	if err != nil {
 		writeError(w, r, err)
 		return
@@ -207,15 +181,4 @@ func (h *ToyImageHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func toToyImageResponse(i repository.ToyImage, urls urlBuilder) model.ToyImage {
-	return model.ToyImage{
-		ID:        i.ID,
-		ToyID:     i.ToyID,
-		URL:       urls.URL(i.StorageKey),
-		Position:  int(i.Position),
-		CreatedAt: i.CreatedAt,
-		UpdatedAt: i.UpdatedAt,
-	}
 }

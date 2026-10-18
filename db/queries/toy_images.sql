@@ -1,4 +1,4 @@
--- name: CreateImageForToy :one
+-- name: CreateToyImage :one
 INSERT INTO toy_images (toy_id, storage_key, position)
 SELECT
   sqlc.arg(toy_id):: uuid,
@@ -19,7 +19,7 @@ RETURNING
   created_at,
   updated_at;
 
--- name: GetImagesByToyIDs :many
+-- name: GetToyImagesByToyIDs :many
 SELECT
   id,
   toy_id,
@@ -35,7 +35,7 @@ ORDER BY
   toy_id,
   position;
 
--- name: GetImageByID :one
+-- name: GetToyImage :one
 SELECT
   id,
   toy_id,
@@ -58,7 +58,7 @@ WHERE
 RETURNING
   storage_key;
 
--- name: DeleteImagesByToyID :many
+-- name: DeleteToyImagesByToyID :many
 DELETE FROM
   toy_images
 WHERE

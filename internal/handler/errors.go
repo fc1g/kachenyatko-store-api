@@ -8,14 +8,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// errorResponse is the body of every non-2xx response.
-type errorResponse struct {
-	// Machine-readable error code
-	Code string `json:"code" enums:"INVALID,NOT_FOUND,CONFLICT,PAYLOAD_TOO_LARGE,INTERNAL" example:"NOT_FOUND"`
-	// Human-readable error message
-	Message string `json:"message" example:"category not found"`
-} // @name ErrorResponse
-
 func writeError(w http.ResponseWriter, r *http.Request, err error) {
 	logger := zerolog.Ctx(r.Context())
 
@@ -27,7 +19,7 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 
 	msg := http.StatusText(http.StatusInternalServerError)
 	logger.Error().Err(err).Msg(msg)
-	writeJSON(w, http.StatusInternalServerError, errorResponse{Code: "INTERNAL", Message: msg})
+	writeJSON(w, http.StatusInternalServerError, errorResponse{Code: string(apperr.CodeInternal), Message: msg})
 }
 
 func statusFor(code apperr.Code) int {
@@ -38,8 +30,10 @@ func statusFor(code apperr.Code) int {
 		return http.StatusNotFound
 	case apperr.CodeConflict:
 		return http.StatusConflict
-	case apperr.CodeTooLarge:
+	case apperr.CodePayloadTooLarge:
 		return http.StatusRequestEntityTooLarge
+	case apperr.CodeInternal:
+		return http.StatusInternalServerError
 	default:
 		return http.StatusInternalServerError
 	}

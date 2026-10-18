@@ -31,42 +31,6 @@ definitions:
     required:
     - name
     type: object
-  CreateToyInput:
-    properties:
-      category_name:
-        description: Category name; the category is created if it does not exist
-        example: Soft toys
-        maxLength: 100
-        minLength: 1
-        type: string
-      description:
-        example: Soft plush bear, safe for children from 3 years
-        maxLength: 2000
-        minLength: 1
-        type: string
-      materials:
-        example: Cotton, polyester filling
-        maxLength: 255
-        minLength: 1
-        type: string
-      name:
-        example: Teddy bear
-        maxLength: 100
-        minLength: 1
-        type: string
-      size:
-        description: Free-form size, e.g. dimensions in centimeters
-        example: 25x15 cm
-        maxLength: 50
-        minLength: 1
-        type: string
-    required:
-    - category_name
-    - description
-    - materials
-    - name
-    - size
-    type: object
   ErrorResponse:
     properties:
       code:
@@ -166,7 +130,7 @@ definitions:
         format: uri
         type: string
     type: object
-  UpdateToyInput:
+  ToyInput:
     properties:
       category_name:
         description: Category name; the category is created if it does not exist
@@ -470,7 +434,7 @@ paths:
         name: toy
         required: true
         schema:
-          $ref: '#/definitions/CreateToyInput'
+          $ref: '#/definitions/ToyInput'
       produces:
       - application/json
       responses:
@@ -571,7 +535,7 @@ paths:
         name: toy
         required: true
         schema:
-          $ref: '#/definitions/UpdateToyInput'
+          $ref: '#/definitions/ToyInput'
       produces:
       - application/json
       responses:

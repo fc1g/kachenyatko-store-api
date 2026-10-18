@@ -25,15 +25,22 @@ func RequestLogger(logger zerolog.Logger) func(http.Handler) http.Handler {
 
 				var event *zerolog.Event
 				switch {
-				case status >= 500:
+				case status >= http.StatusInternalServerError:
 					event = reqLogger.Error()
-				case status >= 400:
+				case status >= http.StatusBadRequest:
 					event = reqLogger.Warn()
 				default:
 					event = reqLogger.Info()
 				}
 
-				event.Str("method", r.Method).Str("path", r.URL.Path).Str("remote_ip", r.RemoteAddr).Int("status", status).Int("bytes", ww.BytesWritten()).Dur("duration", time.Since(start)).Msg("http request")
+				event.
+					Str("method", r.Method).
+					Str("path", r.URL.Path).
+					Str("remote_ip", r.RemoteAddr).
+					Int("status", status).
+					Int("bytes", ww.BytesWritten()).
+					Dur("duration", time.Since(start)).
+					Msg("http request")
 			}()
 
 			next.ServeHTTP(ww, r)
