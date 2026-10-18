@@ -1,7 +1,6 @@
 package config
 
 import (
-	"strconv"
 	"testing"
 	"time"
 
@@ -9,88 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestGetIntEnv(t *testing.T) {
-	key := "TEST_INT"
-	fallback := 8080
-
-	tests := []struct {
-		name    string
-		value   string
-		want    int
-		wantErr error
-	}{
-		{
-			name: "valid value", value: "3000", want: 3000,
-		},
-		{
-			name: "empty returns fallback", value: "", want: fallback,
-		},
-		{
-			name: "invalid returns fallback and error", value: "INT", want: fallback, wantErr: strconv.ErrSyntax,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv(key, tt.value)
-
-			got, err := getIntEnv(key, fallback)
-
-			assert := assert.New(t)
-
-			if tt.wantErr != nil {
-				assert.ErrorIs(err, tt.wantErr)
-				assert.ErrorContains(err, key)
-			} else {
-				assert.NoError(err)
-			}
-			assert.Equal(tt.want, got)
-		})
-	}
-}
-
-func TestGetDurationEnv(t *testing.T) {
-	key := "TEST_DURATION"
-	fallback := 5 * time.Second
-
-	tests := []struct {
-		name    string
-		value   string
-		want    time.Duration
-		wantErr bool
-	}{
-		{
-			name: "valid value", value: "3s", want: 3 * time.Second,
-		},
-		{
-			name: "empty returns fallback", value: "", want: fallback,
-		},
-		{
-			name: "invalid returns fallback and error", value: "DURATION", want: fallback, wantErr: true,
-		},
-		{
-			name: "missing unit returns fallback and error", value: "10", want: fallback, wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv(key, tt.value)
-
-			got, err := getDurationEnv(key, fallback)
-
-			assert := assert.New(t)
-
-			if tt.wantErr {
-				assert.ErrorContains(err, key)
-			} else {
-				assert.NoError(err)
-			}
-			assert.Equal(tt.want, got)
-		})
-	}
-}
 
 func TestLoad_ValidEnv(t *testing.T) {
 	setValidEnv(t)
@@ -116,7 +33,7 @@ func TestLoad_ValidEnv(t *testing.T) {
 			PublicURL:       "https://pub.example.com",
 		},
 		Logging:  Logging{Level: "info", Pretty: false},
-		Database: Database{URL: "postgres://user:pass@localhost:5432/db"},
+		Database: Database{URL: "postgres://user:pass@localhost:5432/db", PingTimeout: 2 * time.Second},
 	}, cfg)
 }
 
@@ -221,9 +138,6 @@ func TestLoad_LogPretty(t *testing.T) {
 		},
 		{
 			name: "false", value: "false", want: false,
-		},
-		{
-			name: "garbage falls back to false", value: "garbage", want: false,
 		},
 	}
 

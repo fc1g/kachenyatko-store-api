@@ -3,16 +3,34 @@ package config
 import (
 	"errors"
 	"fmt"
-	"os"
-	"strconv"
+	"io/fs"
 	"time"
 
 	"github.com/fc1g/kachenyatko-store-api/internal/validation"
 	"github.com/joho/godotenv"
 )
 
+const (
+	defaultPort              = 3000
+	defaultReadHeaderTimeout = 5 * time.Second
+	defaultReadTimeout       = 10 * time.Second
+	defaultWriteTimeout      = 10 * time.Second
+	defaultIdleTimeout       = 60 * time.Second
+	defaultShutdownTimeout   = 10 * time.Second
+	defaultDBPingTimeout     = 2 * time.Second
+)
+
+type Environment string
+
+const (
+	EnvDevelopment Environment = "development"
+	EnvProduction  Environment = "production"
+	EnvTest        Environment = "test"
+)
+
 type Config struct {
-	Environment string `validate:"required,oneof=development production test"`
+	// keep oneof in sync with the Environment constants
+	Environment Environment `validate:"required,oneof=development production test"`
 	HTTP        HTTP
 	Logging     Logging
 	Database    Database
@@ -34,7 +52,8 @@ type Logging struct {
 }
 
 type Database struct {
-	URL string `validate:"required,url"`
+	URL         string        `validate:"required,url"`
+	PingTimeout time.Duration `validate:"gt=0"`
 }
 
 type Storage struct {
@@ -46,86 +65,43 @@ type Storage struct {
 }
 
 func Load(v validation.Validator) (*Config, error) {
-	_ = godotenv.Load()
-
-	logPretty, _ := strconv.ParseBool(os.Getenv("LOG_PRETTY"))
-
-	var httpErrors []error
-
-	port, err := getIntEnv("PORT", 3000)
-	if err != nil {
-		httpErrors = append(httpErrors, err)
+	if err := godotenv.Load(); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return nil, fmt.Errorf("load .env: %w", err)
 	}
 
-	getDuration := func(key string, fallback time.Duration) time.Duration {
-		d, err := getDurationEnv(key, fallback)
-		if err != nil {
-			httpErrors = append(httpErrors, err)
-		}
-		return d
-	}
+	env := &envReader{}
+	environment := Environment(env.getString("ENVIRONMENT"))
 
 	cfg := &Config{
-		Environment: os.Getenv("ENVIRONMENT"),
+		Environment: environment,
 		HTTP: HTTP{
-			Port:              port,
-			ReadHeaderTimeout: getDuration("HTTP_READ_HEADER_TIMEOUT", 5*time.Second),
-			ReadTimeout:       getDuration("HTTP_READ_TIMEOUT", 10*time.Second),
-			WriteTimeout:      getDuration("HTTP_WRITE_TIMEOUT", 10*time.Second),
-			IdleTimeout:       getDuration("HTTP_IDLE_TIMEOUT", 60*time.Second),
-			ShutdownTimeout:   getDuration("HTTP_SHUTDOWN_TIMEOUT", 10*time.Second),
+			Port:              env.getInt("PORT", defaultPort),
+			ReadHeaderTimeout: env.getDuration("HTTP_READ_HEADER_TIMEOUT", defaultReadHeaderTimeout),
+			ReadTimeout:       env.getDuration("HTTP_READ_TIMEOUT", defaultReadTimeout),
+			WriteTimeout:      env.getDuration("HTTP_WRITE_TIMEOUT", defaultWriteTimeout),
+			IdleTimeout:       env.getDuration("HTTP_IDLE_TIMEOUT", defaultIdleTimeout),
+			ShutdownTimeout:   env.getDuration("HTTP_SHUTDOWN_TIMEOUT", defaultShutdownTimeout),
 		},
 		Logging: Logging{
-			Level:  os.Getenv("LOG_LEVEL"),
-			Pretty: logPretty,
+			Level:  env.getString("LOG_LEVEL"),
+			Pretty: env.getBool("LOG_PRETTY", environment == EnvDevelopment),
 		},
 		Database: Database{
-			URL: os.Getenv("DB_URL"),
+			URL:         env.getString("DB_URL"),
+			PingTimeout: env.getDuration("DB_PING_TIMEOUT", defaultDBPingTimeout),
 		},
 		Storage: Storage{
-			Endpoint:        os.Getenv("R2_ENDPOINT"),
-			AccessKeyID:     os.Getenv("R2_ACCESS_KEY_ID"),
-			SecretAccessKey: os.Getenv("R2_SECRET_ACCESS_KEY"),
-			BucketName:      os.Getenv("R2_BUCKET_NAME"),
-			PublicURL:       os.Getenv("R2_PUBLIC_URL"),
+			Endpoint:        env.getString("R2_ENDPOINT"),
+			AccessKeyID:     env.getString("R2_ACCESS_KEY_ID"),
+			SecretAccessKey: env.getString("R2_SECRET_ACCESS_KEY"),
+			BucketName:      env.getString("R2_BUCKET_NAME"),
+			PublicURL:       env.getString("R2_PUBLIC_URL"),
 		},
 	}
 
-	if err := errors.Join(httpErrors...); err != nil {
-		return nil, err
-	}
-
-	if err := v.Struct(cfg); err != nil {
+	if err := errors.Join(env.err(), v.Struct(cfg)); err != nil {
 		return nil, err
 	}
 
 	return cfg, nil
-}
-
-func getDurationEnv(key string, fallback time.Duration) (time.Duration, error) {
-	v := os.Getenv(key)
-	if v == "" {
-		return fallback, nil
-	}
-
-	d, err := time.ParseDuration(v)
-	if err != nil {
-		return fallback, fmt.Errorf("%s: %w", key, err)
-	}
-
-	return d, nil
-}
-
-func getIntEnv(key string, fallback int) (int, error) {
-	v := os.Getenv(key)
-	if v == "" {
-		return fallback, nil
-	}
-
-	i, err := strconv.Atoi(v)
-	if err != nil {
-		return fallback, fmt.Errorf("%s: %w", key, err)
-	}
-
-	return i, nil
 }
