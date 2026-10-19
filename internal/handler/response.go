@@ -73,3 +73,11 @@ type orderResponse struct {
 	CreatedAt time.Time  `json:"created_at" format:"date-time"`
 	UpdatedAt time.Time  `json:"updated_at" format:"date-time"`
 } // @name Order
+
+// User is a registered user account.
+type userResponse struct {
+	ID        uuid.UUID `json:"id" swaggertype:"string" format:"uuid" example:"62035cc3-42e5-45bc-9444-0ac5ece856bc"`
+	Email     string    `json:"email" format:"email" example:"user@example.com"`
+	CreatedAt time.Time `json:"created_at" format:"date-time"`
+	UpdatedAt time.Time `json:"updated_at" format:"date-time"`
+} // @name User

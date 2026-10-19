@@ -83,3 +83,16 @@ func toOrderResponse(o repository.Order) orderResponse {
 func toOrderResponses(orders []repository.Order) []orderResponse {
 	return mapSlice(orders, toOrderResponse)
 }
+
+func toUserResponse(u service.UserRow) userResponse {
+	return userResponse{
+		ID:        u.ID,
+		Email:     u.Email,
+		CreatedAt: u.CreatedAt,
+		UpdatedAt: u.UpdatedAt,
+	}
+}
+
+func toUserResponses(users []service.UserRow) []userResponse {
+	return mapSlice(users, toUserResponse)
+}

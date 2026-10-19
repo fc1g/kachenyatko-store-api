@@ -16,52 +16,6 @@ import (
 
 const maxBodyBytes = 1 << 20
 
-type healthHandler interface {
-	Live(w http.ResponseWriter, r *http.Request)
-	Ready(w http.ResponseWriter, r *http.Request)
-}
-
-type categoryHandler interface {
-	Create(w http.ResponseWriter, r *http.Request)
-	GetAll(w http.ResponseWriter, r *http.Request)
-	GetOne(w http.ResponseWriter, r *http.Request)
-	Update(w http.ResponseWriter, r *http.Request)
-	Delete(w http.ResponseWriter, r *http.Request)
-}
-
-type toyHandler interface {
-	Create(w http.ResponseWriter, r *http.Request)
-	GetAll(w http.ResponseWriter, r *http.Request)
-	GetOne(w http.ResponseWriter, r *http.Request)
-	Update(w http.ResponseWriter, r *http.Request)
-	Delete(w http.ResponseWriter, r *http.Request)
-}
-
-type toyImageHandler interface {
-	Create(w http.ResponseWriter, r *http.Request)
-	GetAll(w http.ResponseWriter, r *http.Request)
-	GetOne(w http.ResponseWriter, r *http.Request)
-	Delete(w http.ResponseWriter, r *http.Request)
-}
-
-type orderHandler interface {
-	CreateForToy(w http.ResponseWriter, r *http.Request)
-	CreateCustom(w http.ResponseWriter, r *http.Request)
-	GetAll(w http.ResponseWriter, r *http.Request)
-	GetAllCustomOrders(w http.ResponseWriter, r *http.Request)
-	GetAllOrdersByToyID(w http.ResponseWriter, r *http.Request)
-	GetOne(w http.ResponseWriter, r *http.Request)
-	UpdateStatus(w http.ResponseWriter, r *http.Request)
-}
-
-type Handlers struct {
-	Health   healthHandler
-	Category categoryHandler
-	Toy      toyHandler
-	ToyImage toyImageHandler
-	Order    orderHandler
-}
-
 func New(logger zerolog.Logger, handlers Handlers, siteURL string) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -79,6 +33,17 @@ func New(logger zerolog.Logger, handlers Handlers, siteURL string) *chi.Mux {
 
 	r.Get("/livez", handlers.Health.Live)
 	r.Get("/readyz", handlers.Health.Ready)
+
+	r.Route("/users", func(r chi.Router) {
+		r.Get("/{userID}", handlers.User.GetOne)
+		r.With(middleware.RequestSize(handler.MaxImageUploadBytes)).Patch("/{userID}", handlers.User.Update)
+		r.Delete("/{userID}", handlers.User.Delete)
+
+		r.Group(func(r chi.Router) {
+			// TODO: r.use(requireAdmin)
+			r.Get("/", handlers.User.GetAll)
+		})
+	})
 
 	r.Route("/categories", func(r chi.Router) {
 		r.Get("/", handlers.Category.GetAll)

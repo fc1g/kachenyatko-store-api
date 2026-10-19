@@ -223,6 +223,33 @@ definitions:
     required:
     - status
     type: object
+  User:
+    properties:
+      created_at:
+        format: date-time
+        type: string
+      email:
+        example: user@example.com
+        format: email
+        type: string
+      id:
+        example: 62035cc3-42e5-45bc-9444-0ac5ece856bc
+        format: uuid
+        type: string
+      updated_at:
+        format: date-time
+        type: string
+    type: object
+  service.UpdateUserInput:
+    properties:
+      email:
+        example: user@example.com
+        format: email
+        maxLength: 254
+        type: string
+    required:
+    - email
+    type: object
 info:
   contact: {}
   description: API for a small handmade toy shop
@@ -1071,4 +1098,149 @@ paths:
       summary: Order a toy
       tags:
       - orders
+  /users:
+    get:
+      description: Users sorted from oldest to newest, paginated with limit/offset
+      parameters:
+      - default: 20
+        description: Page size
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Number of items to skip
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/User'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: List users
+      tags:
+      - users
+  /users/{userID}:
+    delete:
+      description: Delete a user by their ID
+      parameters:
+      - description: User ID
+        format: uuid
+        in: path
+        name: userID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Delete user
+      tags:
+      - users
+    get:
+      description: Get a user by their ID
+      parameters:
+      - description: User ID
+        format: uuid
+        in: path
+        name: userID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Get user
+      tags:
+      - users
+    patch:
+      consumes:
+      - application/json
+      description: Change a user's email by their ID; the email must be unique (case-insensitive)
+      parameters:
+      - description: User ID
+        format: uuid
+        in: path
+        name: userID
+        required: true
+        type: string
+      - description: New user data
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/service.UpdateUserInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Update user
+      tags:
+      - users
 swagger: "2.0"

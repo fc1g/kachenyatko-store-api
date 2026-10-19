@@ -132,6 +132,7 @@ func newHandlers(pool *pgxpool.Pool, r2 *storage.R2, bot *telegram.Bot, v valida
 	toyService := service.NewToyService(repo, r2, v)
 	toyImageService := service.NewToyImageService(repo, r2)
 	orderService := service.NewOrderService(repo, bot, v, cfg.Site.URL)
+	userService := service.NewUserService(repo, v)
 
 	return router.Handlers{
 		Health:   handler.NewHealthHandler(pool, cfg.Database.PingTimeout),
@@ -139,6 +140,7 @@ func newHandlers(pool *pgxpool.Pool, r2 *storage.R2, bot *telegram.Bot, v valida
 		Toy:      handler.NewToyHandler(toyService, r2),
 		ToyImage: handler.NewToyImageHandler(toyImageService, r2),
 		Order:    handler.NewOrderHandler(orderService),
+		User:     handler.NewUserHandler(userService),
 	}
 }
 

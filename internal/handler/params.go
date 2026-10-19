@@ -13,14 +13,20 @@ import (
 )
 
 const (
-	CategoryIDParam       = "categoryID"
-	CategorySlugParam     = "slug"
-	CategoryQueryParam    = "category"
-	ToyIDParam            = "toyID"
-	ToyImageIDParam       = "imageID"
-	ImagesFormField       = "images"
+	CategoryIDParam    = "categoryID"
+	CategorySlugParam  = "slug"
+	CategoryQueryParam = "category"
+
+	ToyIDParam      = "toyID"
+	ToyImageIDParam = "imageID"
+
+	ImagesFormField = "images"
+
 	OrderIDParam          = "orderID"
 	OrderStatusQueryParam = "status"
+
+	UserIDParam    = "userID"
+	UserEmailParam = "email"
 )
 
 const multipartOverhead = 1 << 20

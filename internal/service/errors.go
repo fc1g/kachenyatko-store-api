@@ -90,3 +90,16 @@ func orderError(err error, op string) error {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 }
+
+func userError(err error, op string) error {
+	if errors.Is(err, pgx.ErrNoRows) {
+		return apperr.Error{Code: apperr.CodeNotFound, Message: "user not found", Err: err}
+	}
+
+	switch pgErrorCode(err) {
+	case pgerrcode.UniqueViolation:
+		return apperr.Error{Code: apperr.CodeConflict, Message: "user with this email already exists", Err: err}
+	default:
+		return fmt.Errorf("%s: %w", op, err)
+	}
+}
