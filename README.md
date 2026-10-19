@@ -7,6 +7,8 @@ REST API for a small handmade toy shop.
 - **Go** with [chi](https://github.com/go-chi/chi) router
 - **PostgreSQL** via [pgx](https://github.com/jackc/pgx); queries generated with [sqlc](https://sqlc.dev), migrations with [goose](https://github.com/pressly/goose)
 - **Cloudflare R2** (S3-compatible) for toy images, via AWS SDK v2
+- **Telegram Bot API** via [go-telegram/bot](https://github.com/go-telegram/bot) for new order notifications
+- [rs/cors](https://github.com/rs/cors) for CORS, limited to the storefront origin
 - [validator](https://github.com/go-playground/validator) for request validation, [zerolog](https://github.com/rs/zerolog) for logging
 - **Swagger / OpenAPI** docs generated with [swag](https://github.com/swaggo/swag)
 
@@ -19,6 +21,7 @@ REST API for a small handmade toy shop.
 - [sqlc](https://sqlc.dev) v1.31+ to generate the repository layer from SQL (needed only when you change `db/queries` or `db/migrations`)
 - [air](https://github.com/air-verse/air) for hot reload in development (optional: `go run ./cmd/server` also works)
 - A Cloudflare R2 bucket with an API token (Object Read & Write), required for image uploads
+- A Telegram bot token from [@BotFather](https://t.me/BotFather) and the ID of the chat that receives order notifications (the bot must be a member of that chat)
 
 ### Quick start
 
@@ -73,6 +76,10 @@ The server reads its configuration from environment variables. In development th
 | `R2_SECRET_ACCESS_KEY`     | yes      | —                             | R2 API token secret                                           |
 | `R2_BUCKET_NAME`           | yes      | —                             | Bucket for toy images                                         |
 | `R2_PUBLIC_URL`            | yes      | —                             | Public base URL of the bucket                                 |
+| `TELEGRAM_ACCESS_TOKEN`    | yes      | —                             | Bot token from @BotFather                                     |
+| `TELEGRAM_CHAT_ID`         | yes      | —                             | Chat for order notifications (negative for groups)            |
+| `TELEGRAM_SEND_TIMEOUT`    | no       | `10s`                         | Timeout for sending a notification                            |
+| `SITE_URL`                 | yes      | —                             | Storefront URL: allowed CORS origin and base for toy links    |
 
 ### Make commands
 
