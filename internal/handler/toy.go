@@ -10,7 +10,7 @@ import (
 
 type toyService interface {
 	Create(ctx context.Context, input service.ToyInput) (service.ToyDetails, error)
-	GetAll(ctx context.Context, limit, offset int32) ([]service.ToyDetails, error)
+	GetAll(ctx context.Context, slug *string, limit, offset int32) ([]service.ToyDetails, error)
 	GetOne(ctx context.Context, id uuid.UUID) (service.ToyDetails, error)
 	Update(ctx context.Context, id uuid.UUID, input service.ToyInput) (service.ToyDetails, error)
 	Delete(ctx context.Context, id uuid.UUID) error
@@ -62,6 +62,7 @@ func (h *ToyHandler) Create(w http.ResponseWriter, r *http.Request) {
 // @Description  Toys sorted from newest to oldest, paginated with limit/offset
 // @Tags         toys
 // @Produce      json
+// @Param        category  query     string  false  "Filter by category slug, e.g. soft-toys"
 // @Param        limit   query     int  false  "Page size"                default(20) minimum(1) maximum(100)
 // @Param        offset  query     int  false  "Number of items to skip"  default(0)  minimum(0)
 // @Success      200     {array}   toyResponse
@@ -75,7 +76,9 @@ func (h *ToyHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	details, err := h.service.GetAll(r.Context(), limit, offset)
+	categorySlug := parseOptionalStringQuery(r.URL.Query(), CategoryQueryParam)
+
+	details, err := h.service.GetAll(r.Context(), categorySlug, limit, offset)
 	if err != nil {
 		writeError(w, r, err)
 		return

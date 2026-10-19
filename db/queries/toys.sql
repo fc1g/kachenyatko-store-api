@@ -22,6 +22,9 @@ SELECT
 FROM
   toys
   JOIN categories ON categories.id = toys.category_id
+WHERE
+  sqlc.narg(category_slug)::text IS NULL
+  OR categories.slug = sqlc.narg(category_slug)
 ORDER BY
   toys.created_at DESC,
   toys.id

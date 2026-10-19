@@ -112,10 +112,11 @@ func (s *ToyService) Create(ctx context.Context, input ToyInput) (ToyDetails, er
 	}, nil
 }
 
-func (s *ToyService) GetAll(ctx context.Context, limit, offset int32) ([]ToyDetails, error) {
+func (s *ToyService) GetAll(ctx context.Context, categorySlug *string, limit, offset int32) ([]ToyDetails, error) {
 	rows, err := s.repo.GetToys(ctx, repository.GetToysParams{
-		Limit:  limit,
-		Offset: offset,
+		Limit:        limit,
+		Offset:       offset,
+		CategorySlug: categorySlug,
 	})
 	if err != nil {
 		return nil, toyError(err, "get toys")

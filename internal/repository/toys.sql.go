@@ -118,6 +118,9 @@ SELECT
 FROM
   toys
   JOIN categories ON categories.id = toys.category_id
+WHERE
+  $3::text IS NULL
+  OR categories.slug = $3
 ORDER BY
   toys.created_at DESC,
   toys.id
@@ -125,8 +128,9 @@ LIMIT $1 OFFSET $2
 `
 
 type GetToysParams struct {
-	Limit  int32
-	Offset int32
+	Limit        int32
+	Offset       int32
+	CategorySlug *string
 }
 
 type GetToysRow struct {
@@ -135,7 +139,7 @@ type GetToysRow struct {
 }
 
 func (q *Queries) GetToys(ctx context.Context, arg GetToysParams) ([]GetToysRow, error) {
-	rows, err := q.db.Query(ctx, getToys, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, getToys, arg.Limit, arg.Offset, arg.CategorySlug)
 	if err != nil {
 		return nil, err
 	}
