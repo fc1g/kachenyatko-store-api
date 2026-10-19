@@ -13,6 +13,7 @@ import (
 	"github.com/fc1g/kachenyatko-store-api/internal/router"
 	"github.com/fc1g/kachenyatko-store-api/internal/service"
 	"github.com/fc1g/kachenyatko-store-api/internal/storage"
+	"github.com/fc1g/kachenyatko-store-api/internal/telegram"
 	"github.com/fc1g/kachenyatko-store-api/internal/validation"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
@@ -37,8 +38,14 @@ func New(ctx context.Context, cfg *config.Config, logger zerolog.Logger, v valid
 		return nil, err
 	}
 
-	handlers := newHandlers(pool, r2, v, cfg.Database.PingTimeout)
-	r := router.New(logger, handlers)
+	bot, err := telegram.NewBot(cfg.Telegram)
+	if err != nil {
+		pool.Close()
+		return nil, err
+	}
+
+	handlers := newHandlers(pool, r2, bot, v, cfg)
+	r := router.New(logger, handlers, cfg.Site.URL)
 
 	server := newHTTPServer(cfg.HTTP, r)
 
@@ -118,18 +125,20 @@ func newStorage(ctx context.Context, cfg config.Storage) (*storage.R2, error) {
 	return r2, nil
 }
 
-func newHandlers(pool *pgxpool.Pool, r2 *storage.R2, v validation.Validator, dbPingTimeout time.Duration) router.Handlers {
+func newHandlers(pool *pgxpool.Pool, r2 *storage.R2, bot *telegram.Bot, v validation.Validator, cfg *config.Config) router.Handlers {
 	repo := repository.NewStore(pool)
 
 	categoryService := service.NewCategoryService(repo, v)
 	toyService := service.NewToyService(repo, r2, v)
 	toyImageService := service.NewToyImageService(repo, r2)
+	orderService := service.NewOrderService(repo, bot, v, cfg.Site.URL)
 
 	return router.Handlers{
-		Health:   handler.NewHealthHandler(pool, dbPingTimeout),
+		Health:   handler.NewHealthHandler(pool, cfg.Database.PingTimeout),
 		Category: handler.NewCategoryHandler(categoryService),
 		Toy:      handler.NewToyHandler(toyService, r2),
 		ToyImage: handler.NewToyImageHandler(toyImageService, r2),
+		Order:    handler.NewOrderHandler(orderService),
 	}
 }
 

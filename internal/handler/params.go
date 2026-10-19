@@ -13,11 +13,14 @@ import (
 )
 
 const (
-	CategoryIDParam   = "categoryID"
-	CategorySlugParam = "slug"
-	ToyIDParam        = "toyID"
-	ToyImageIDParam   = "imageID"
-	ImagesFormField   = "images"
+	CategoryIDParam       = "categoryID"
+	CategorySlugParam     = "slug"
+	CategoryQueryParam    = "category"
+	ToyIDParam            = "toyID"
+	ToyImageIDParam       = "imageID"
+	ImagesFormField       = "images"
+	OrderIDParam          = "orderID"
+	OrderStatusQueryParam = "status"
 )
 
 const multipartOverhead = 1 << 20
@@ -35,6 +38,14 @@ func parseIDParam(r *http.Request, name string) (uuid.UUID, error) {
 		return uuid.Nil, apperr.Error{Code: apperr.CodeInvalid, Message: "invalid " + name, Err: err}
 	}
 	return id, nil
+}
+
+func parseOptionalStringQuery(q url.Values, key string) *string {
+	val := q.Get(key)
+	if val == "" {
+		return nil
+	}
+	return &val
 }
 
 func parsePagination(r *http.Request) (int32, int32, error) {

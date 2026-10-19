@@ -44,6 +44,10 @@ func fieldMessage(fieldError validator.FieldError) string {
 			return fmt.Sprintf("%s must be at most %s characters", fieldError.Field(), fieldError.Param())
 		}
 		return fmt.Sprintf("%s cannot exceed %s", fieldError.Field(), fieldError.Param())
+	case "oneof":
+		return fmt.Sprintf("%s must be one of: %s", fieldError.Field(), fieldError.Param())
+	case "e164":
+		return fmt.Sprintf("%s must be in international format, e.g. +380671234567", fieldError.Field())
 	default:
 		return fmt.Sprintf("%s is invalid", fieldError.Field())
 	}

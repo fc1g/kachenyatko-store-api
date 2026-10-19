@@ -67,3 +67,19 @@ func toToyImageResponses(images []repository.ToyImage, urls urlBuilder) []toyIma
 		return toToyImageResponse(i, urls)
 	})
 }
+
+func toOrderResponse(o repository.Order) orderResponse {
+	return orderResponse{
+		ID:        o.ID,
+		ToyID:     o.ToyID,
+		Phone:     o.Phone,
+		Message:   o.Message,
+		Status:    o.Status,
+		CreatedAt: o.CreatedAt,
+		UpdatedAt: o.UpdatedAt,
+	}
+}
+
+func toOrderResponses(orders []repository.Order) []orderResponse {
+	return mapSlice(orders, toOrderResponse)
+}

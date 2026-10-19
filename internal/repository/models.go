@@ -18,6 +18,16 @@ type Category struct {
 	UpdatedAt time.Time
 }
 
+type Order struct {
+	ID        uuid.UUID
+	ToyID     *uuid.UUID
+	Phone     string
+	Message   string
+	Status    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 type Toy struct {
 	ID          uuid.UUID
 	CategoryID  uuid.UUID

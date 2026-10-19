@@ -12,6 +12,7 @@ import (
 
 type Querier interface {
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error)
+	CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error)
 	CreateToy(ctx context.Context, arg CreateToyParams) (Toy, error)
 	CreateToyImage(ctx context.Context, arg CreateToyImageParams) (ToyImage, error)
 	DeleteCategory(ctx context.Context, id uuid.UUID) (int64, error)
@@ -21,12 +22,17 @@ type Querier interface {
 	GetCategories(ctx context.Context, arg GetCategoriesParams) ([]Category, error)
 	GetCategory(ctx context.Context, id uuid.UUID) (Category, error)
 	GetCategoryBySlug(ctx context.Context, slug string) (Category, error)
+	GetCustomOrders(ctx context.Context, arg GetCustomOrdersParams) ([]Order, error)
+	GetOrder(ctx context.Context, id uuid.UUID) (Order, error)
+	GetOrders(ctx context.Context, arg GetOrdersParams) ([]Order, error)
+	GetOrdersByToyID(ctx context.Context, arg GetOrdersByToyIDParams) ([]Order, error)
 	GetToy(ctx context.Context, id uuid.UUID) (GetToyRow, error)
 	GetToyImage(ctx context.Context, arg GetToyImageParams) (ToyImage, error)
 	GetToyImagesByToyIDs(ctx context.Context, toyIds []uuid.UUID) ([]ToyImage, error)
 	GetToys(ctx context.Context, arg GetToysParams) ([]GetToysRow, error)
 	ToyExists(ctx context.Context, id uuid.UUID) (bool, error)
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error)
+	UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) (Order, error)
 	UpdateToy(ctx context.Context, arg UpdateToyParams) (Toy, error)
 	UpsertCategory(ctx context.Context, arg UpsertCategoryParams) (Category, error)
 }
