@@ -11,13 +11,15 @@ import (
 )
 
 const (
-	defaultPort              = 3000
-	defaultReadHeaderTimeout = 5 * time.Second
-	defaultReadTimeout       = 10 * time.Second
-	defaultWriteTimeout      = 10 * time.Second
-	defaultIdleTimeout       = 60 * time.Second
-	defaultShutdownTimeout   = 10 * time.Second
-	defaultDBPingTimeout     = 2 * time.Second
+	defaultPort                = 3000
+	defaultReadHeaderTimeout   = 5 * time.Second
+	defaultReadTimeout         = 10 * time.Second
+	defaultWriteTimeout        = 10 * time.Second
+	defaultIdleTimeout         = 60 * time.Second
+	defaultShutdownTimeout     = 10 * time.Second
+	defaultDBPingTimeout       = 2 * time.Second
+	unsetTelegramChatID        = 0
+	defaultTelegramSendTimeout = 10 * time.Second
 )
 
 type Environment string
@@ -35,6 +37,8 @@ type Config struct {
 	Logging     Logging
 	Database    Database
 	Storage     Storage
+	Telegram    Telegram
+	Site        Site
 }
 
 type HTTP struct {
@@ -62,6 +66,16 @@ type Storage struct {
 	SecretAccessKey string `validate:"required"`
 	BucketName      string `validate:"required"`
 	PublicURL       string `validate:"required,url"`
+}
+
+type Telegram struct {
+	AccessToken string        `validate:"required"`
+	ChatID      int64         `validate:"required"`
+	SendTimeout time.Duration `validate:"gt=0"`
+}
+
+type Site struct {
+	URL string `validate:"required,http_url"`
 }
 
 func Load(v validation.Validator) (*Config, error) {
@@ -96,6 +110,14 @@ func Load(v validation.Validator) (*Config, error) {
 			SecretAccessKey: env.getString("R2_SECRET_ACCESS_KEY"),
 			BucketName:      env.getString("R2_BUCKET_NAME"),
 			PublicURL:       env.getString("R2_PUBLIC_URL"),
+		},
+		Telegram: Telegram{
+			AccessToken: env.getString("TELEGRAM_ACCESS_TOKEN"),
+			ChatID:      env.getInt64("TELEGRAM_CHAT_ID", unsetTelegramChatID),
+			SendTimeout: env.getDuration("TELEGRAM_SEND_TIMEOUT", defaultTelegramSendTimeout),
+		},
+		Site: Site{
+			URL: env.getString("SITE_URL"),
 		},
 	}
 

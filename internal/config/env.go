@@ -20,6 +20,12 @@ func (r *envReader) getInt(key string, fallback int) int {
 	return getEnv(r, key, fallback, strconv.Atoi)
 }
 
+func (r *envReader) getInt64(key string, fallback int64) int64 {
+	return getEnv(r, key, fallback, func(s string) (int64, error) {
+		return strconv.ParseInt(s, 10, 64)
+	})
+}
+
 func (r *envReader) getBool(key string, fallback bool) bool {
 	return getEnv(r, key, fallback, strconv.ParseBool)
 }
