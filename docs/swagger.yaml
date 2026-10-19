@@ -31,6 +31,21 @@ definitions:
     required:
     - name
     type: object
+  CreateOrderInput:
+    properties:
+      message:
+        description: What the customer wants; required for custom orders without a
+          toy
+        example: Would like it in blue, please
+        maxLength: 2000
+        type: string
+      phone:
+        description: Customer phone number in international format
+        example: "+380671234567"
+        type: string
+    required:
+    - phone
+    type: object
   ErrorResponse:
     properties:
       code:
@@ -55,6 +70,37 @@ definitions:
         - OK
         - Service Unavailable
         example: OK
+        type: string
+    type: object
+  Order:
+    properties:
+      created_at:
+        format: date-time
+        type: string
+      id:
+        example: 5d2c7b1a-3e4f-4a6b-9c8d-1e2f3a4b5c6d
+        format: uuid
+        type: string
+      message:
+        example: Would like it in blue, please
+        type: string
+      phone:
+        example: "+380671234567"
+        type: string
+      status:
+        enum:
+        - open
+        - closed
+        example: open
+        type: string
+      toy_id:
+        description: Ordered toy; null for custom orders
+        example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        format: uuid
+        type: string
+        x-nullable: true
+      updated_at:
+        format: date-time
         type: string
     type: object
   Toy:
@@ -165,6 +211,17 @@ definitions:
     - materials
     - name
     - size
+    type: object
+  UpdateOrderInput:
+    properties:
+      status:
+        enum:
+        - open
+        - closed
+        example: closed
+        type: string
+    required:
+    - status
     type: object
 info:
   contact: {}
@@ -368,6 +425,206 @@ paths:
       summary: Liveness probe
       tags:
       - health
+  /orders:
+    get:
+      description: All orders, both for catalog toys and custom ones, sorted from
+        newest to oldest, paginated with limit/offset
+      parameters:
+      - description: Filter by order status
+        enum:
+        - open
+        - closed
+        in: query
+        name: status
+        type: string
+      - default: 20
+        description: Page size
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Number of items to skip
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/Order'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: List orders
+      tags:
+      - orders
+    post:
+      consumes:
+      - application/json
+      description: Order a toy that is not in the catalog. The message describing
+        the toy is required
+      parameters:
+      - description: Contact details and description of the toy
+        in: body
+        name: order
+        required: true
+        schema:
+          $ref: '#/definitions/CreateOrderInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/Order'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Place a custom order
+      tags:
+      - orders
+  /orders/{orderID}:
+    get:
+      description: Get an order by its ID, either for a catalog toy or a custom one
+      parameters:
+      - description: Order ID
+        format: uuid
+        in: path
+        name: orderID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Order'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Get order
+      tags:
+      - orders
+  /orders/{orderID}/status:
+    patch:
+      consumes:
+      - application/json
+      description: Change the status of an order by its ID
+      parameters:
+      - description: Order ID
+        format: uuid
+        in: path
+        name: orderID
+        required: true
+        type: string
+      - description: New status
+        in: body
+        name: status
+        required: true
+        schema:
+          $ref: '#/definitions/UpdateOrderInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Order'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Update order status
+      tags:
+      - orders
+  /orders/custom:
+    get:
+      description: Orders for toys that are not in the catalog, sorted from newest
+        to oldest, paginated with limit/offset
+      parameters:
+      - description: Filter by order status
+        enum:
+        - open
+        - closed
+        in: query
+        name: status
+        type: string
+      - default: 20
+        description: Page size
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Number of items to skip
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/Order'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: List custom orders
+      tags:
+      - orders
   /readyz:
     get:
       description: 'Reports whether the service can handle requests: pings the database
@@ -390,6 +647,10 @@ paths:
     get:
       description: Toys sorted from newest to oldest, paginated with limit/offset
       parameters:
+      - description: Filter by category slug, e.g. soft-toys
+        in: query
+        name: category
+        type: string
       - default: 20
         description: Page size
         in: query
@@ -716,4 +977,98 @@ paths:
       summary: Get toy image
       tags:
       - toy_images
+  /toys/{toyID}/orders:
+    get:
+      description: Orders for a catalog toy, sorted from newest to oldest, paginated
+        with limit/offset
+      parameters:
+      - description: Toy ID
+        format: uuid
+        in: path
+        name: toyID
+        required: true
+        type: string
+      - description: Filter by order status
+        enum:
+        - open
+        - closed
+        in: query
+        name: status
+        type: string
+      - default: 20
+        description: Page size
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Number of items to skip
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/Order'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: List orders for a toy
+      tags:
+      - orders
+    post:
+      consumes:
+      - application/json
+      description: Place an order for a toy from the catalog. The message is optional
+      parameters:
+      - description: Toy ID
+        format: uuid
+        in: path
+        name: toyID
+        required: true
+        type: string
+      - description: Contact details and optional message
+        in: body
+        name: order
+        required: true
+        schema:
+          $ref: '#/definitions/CreateOrderInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/Order'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Order a toy
+      tags:
+      - orders
 swagger: "2.0"
