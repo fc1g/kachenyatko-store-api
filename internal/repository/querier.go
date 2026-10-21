@@ -40,7 +40,6 @@ type Querier interface {
 	UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) (Order, error)
 	UpdateToy(ctx context.Context, arg UpdateToyParams) (Toy, error)
 	UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams) (UpdateUserEmailRow, error)
-	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) (UpdateUserPasswordRow, error)
 	UpsertCategory(ctx context.Context, arg UpsertCategoryParams) (Category, error)
 }
 
