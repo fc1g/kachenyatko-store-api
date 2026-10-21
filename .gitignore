@@ -5,3 +5,5 @@ tmp
 
 .agents
 skills-lock.json
+
+private.pem

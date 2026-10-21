@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/fc1g/kachenyatko-store-api/internal/auth"
 	"github.com/fc1g/kachenyatko-store-api/internal/config"
 	"github.com/fc1g/kachenyatko-store-api/internal/handler"
 	"github.com/fc1g/kachenyatko-store-api/internal/repository"
@@ -27,6 +28,11 @@ type App struct {
 }
 
 func New(ctx context.Context, cfg *config.Config, logger zerolog.Logger, v validation.Validator) (*App, error) {
+	tokens, err := auth.NewTokenManager(cfg.Auth.AccessPrivateKey, cfg.Auth.AccessIssuer, cfg.Auth.AccessTokenTTL)
+	if err != nil {
+		return nil, err
+	}
+
 	pool, err := newDB(ctx, cfg.Database)
 	if err != nil {
 		return nil, err
@@ -44,8 +50,9 @@ func New(ctx context.Context, cfg *config.Config, logger zerolog.Logger, v valid
 		return nil, err
 	}
 
-	handlers := newHandlers(pool, r2, bot, v, cfg)
-	r := router.New(logger, handlers, cfg.Site.URL)
+	d := deps{pool: pool, r2: r2, bot: bot, tokens: tokens, v: v, cfg: cfg}
+	handlers := newHandlers(d)
+	r := router.New(logger, handlers, tokens, cfg.Site.URL)
 
 	server := newHTTPServer(cfg.HTTP, r)
 
@@ -125,22 +132,35 @@ func newStorage(ctx context.Context, cfg config.Storage) (*storage.R2, error) {
 	return r2, nil
 }
 
-func newHandlers(pool *pgxpool.Pool, r2 *storage.R2, bot *telegram.Bot, v validation.Validator, cfg *config.Config) router.Handlers {
-	repo := repository.NewStore(pool)
+type deps struct {
+	pool   *pgxpool.Pool
+	r2     *storage.R2
+	bot    *telegram.Bot
+	tokens *auth.TokenManager
+	v      validation.Validator
+	cfg    *config.Config
+}
 
-	categoryService := service.NewCategoryService(repo, v)
-	toyService := service.NewToyService(repo, r2, v)
-	toyImageService := service.NewToyImageService(repo, r2)
-	orderService := service.NewOrderService(repo, bot, v, cfg.Site.URL)
-	userService := service.NewUserService(repo, v)
+func newHandlers(d deps) router.Handlers {
+	repo := repository.NewStore(d.pool)
+
+	categoryService := service.NewCategoryService(repo, d.v)
+	toyService := service.NewToyService(repo, d.r2, d.v)
+	toyImageService := service.NewToyImageService(repo, d.r2)
+	orderService := service.NewOrderService(repo, d.bot, d.v, d.cfg.Site.URL)
+	userService := service.NewUserService(repo, d.v)
+	authService := service.NewAuthService(repo, d.tokens, d.v)
+
+	secureCookies := d.cfg.Environment == config.EnvProduction
 
 	return router.Handlers{
-		Health:   handler.NewHealthHandler(pool, cfg.Database.PingTimeout),
+		Health:   handler.NewHealthHandler(d.pool, d.cfg.Database.PingTimeout),
 		Category: handler.NewCategoryHandler(categoryService),
-		Toy:      handler.NewToyHandler(toyService, r2),
-		ToyImage: handler.NewToyImageHandler(toyImageService, r2),
+		Toy:      handler.NewToyHandler(toyService, d.r2),
+		ToyImage: handler.NewToyImageHandler(toyImageService, d.r2),
 		Order:    handler.NewOrderHandler(orderService),
 		User:     handler.NewUserHandler(userService),
+		Auth:     handler.NewAuthHandler(authService, userService, secureCookies),
 	}
 }
 

@@ -39,6 +39,12 @@ type userHandler interface {
 	Delete(w http.ResponseWriter, r *http.Request)
 }
 
+type authHandler interface {
+	Me(w http.ResponseWriter, r *http.Request)
+	Login(w http.ResponseWriter, r *http.Request)
+	Logout(w http.ResponseWriter, r *http.Request)
+}
+
 type Handlers struct {
 	Health   healthHandler
 	Category crudHandler
@@ -46,4 +52,5 @@ type Handlers struct {
 	ToyImage toyImageHandler
 	Order    orderHandler
 	User     userHandler
+	Auth     authHandler
 }

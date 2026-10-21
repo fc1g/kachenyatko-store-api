@@ -36,6 +36,7 @@ func TestLoad_ValidEnv(t *testing.T) {
 		Database: Database{URL: "postgres://user:pass@localhost:5432/db", PingTimeout: 2 * time.Second},
 		Telegram: Telegram{AccessToken: "test-access-token", ChatID: 123456789, SendTimeout: 10 * time.Second},
 		Site:     Site{URL: "https://example.com"},
+		Auth:     Auth{AccessPrivateKey: "dGVzdC1hY2Nlc3MtcHJpdmF0ZS1rZXk=", AccessIssuer: "test-issuer", AccessTokenTTL: defaultAccessTokenTTL},
 	}, cfg)
 }
 
@@ -179,4 +180,7 @@ func setValidEnv(t *testing.T) {
 	t.Setenv("TELEGRAM_CHAT_ID", "123456789")
 	t.Setenv("TELEGRAM_SEND_TIMEOUT", "")
 	t.Setenv("SITE_URL", "https://example.com")
+	t.Setenv("AUTH_ACCESS_PRIVATE_KEY", "dGVzdC1hY2Nlc3MtcHJpdmF0ZS1rZXk=")
+	t.Setenv("AUTH_ACCESS_ISSUER", "test-issuer")
+	t.Setenv("AUTH_ACCESS_TOKEN_TTL", "")
 }

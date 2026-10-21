@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	_ "github.com/fc1g/kachenyatko-store-api/docs"
+	"github.com/fc1g/kachenyatko-store-api/internal/auth"
 	"github.com/fc1g/kachenyatko-store-api/internal/handler"
 	"github.com/fc1g/kachenyatko-store-api/internal/httpmw"
 	"github.com/go-chi/chi/v5"
@@ -16,15 +17,16 @@ import (
 
 const maxBodyBytes = 1 << 20
 
-func New(logger zerolog.Logger, handlers Handlers, siteURL string) *chi.Mux {
+func New(logger zerolog.Logger, handlers Handlers, tokens *auth.TokenManager, siteURL string) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(httpmw.RequestLogger(logger))
 	r.Use(middleware.Recoverer)
 	r.Use(cors.New(cors.Options{
-		AllowedOrigins: []string{strings.TrimSuffix(siteURL, "/")},
-		AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete},
-		AllowedHeaders: []string{"Content-Type", "Authorization"},
+		AllowedOrigins:   []string{strings.TrimSuffix(siteURL, "/")},
+		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		AllowCredentials: true,
 	}).Handler)
 
 	r.Get("/swagger/*", httpSwagger.Handler(
@@ -34,13 +36,18 @@ func New(logger zerolog.Logger, handlers Handlers, siteURL string) *chi.Mux {
 	r.Get("/livez", handlers.Health.Live)
 	r.Get("/readyz", handlers.Health.Ready)
 
+	r.With(httpmw.RequireAuth(tokens)).Get("/me", handlers.Auth.Me)
+	r.With(middleware.RequestSize(maxBodyBytes)).Post("/login", handlers.Auth.Login)
+	r.With(middleware.RequestSize(maxBodyBytes)).Post("/logout", handlers.Auth.Logout)
+
 	r.Route("/users", func(r chi.Router) {
+		r.Use(httpmw.RequireAuth(tokens))
+
 		r.Get("/{userID}", handlers.User.GetOne)
-		r.With(middleware.RequestSize(handler.MaxImageUploadBytes)).Patch("/{userID}", handlers.User.Update)
+		r.With(middleware.RequestSize(maxBodyBytes)).Patch("/{userID}", handlers.User.Update)
 		r.Delete("/{userID}", handlers.User.Delete)
 
 		r.Group(func(r chi.Router) {
-			// TODO: r.use(requireAdmin)
 			r.Get("/", handlers.User.GetAll)
 		})
 	})
@@ -51,7 +58,8 @@ func New(logger zerolog.Logger, handlers Handlers, siteURL string) *chi.Mux {
 
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.RequestSize(maxBodyBytes))
-			// TODO: r.use(requireAdmin)
+			r.Use(httpmw.RequireAuth(tokens))
+
 			r.Post("/", handlers.Category.Create)
 			r.Put("/{categoryID}", handlers.Category.Update)
 			r.Delete("/{categoryID}", handlers.Category.Delete)
@@ -64,7 +72,8 @@ func New(logger zerolog.Logger, handlers Handlers, siteURL string) *chi.Mux {
 
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.RequestSize(maxBodyBytes))
-			// TODO: r.use(requireAdmin)
+			r.Use(httpmw.RequireAuth(tokens))
+
 			r.Post("/", handlers.Toy.Create)
 			r.Put("/{toyID}", handlers.Toy.Update)
 			r.Delete("/{toyID}", handlers.Toy.Delete)
@@ -75,7 +84,8 @@ func New(logger zerolog.Logger, handlers Handlers, siteURL string) *chi.Mux {
 			r.Get("/{imageID}", handlers.ToyImage.GetOne)
 
 			r.Group(func(r chi.Router) {
-				// TODO: r.use(requireAdmin)
+				r.Use(httpmw.RequireAuth(tokens))
+
 				r.With(middleware.RequestSize(handler.MaxImageUploadBytes)).Post("/", handlers.ToyImage.Create)
 				r.Delete("/{imageID}", handlers.ToyImage.Delete)
 			})
@@ -85,7 +95,7 @@ func New(logger zerolog.Logger, handlers Handlers, siteURL string) *chi.Mux {
 			r.With(middleware.RequestSize(maxBodyBytes)).Post("/", handlers.Order.CreateForToy)
 
 			r.Group(func(r chi.Router) {
-				// TODO: r.use(requireAdmin)
+				r.Use(httpmw.RequireAuth(tokens))
 				r.Get("/", handlers.Order.GetAllOrdersByToyID)
 			})
 		})
@@ -95,7 +105,8 @@ func New(logger zerolog.Logger, handlers Handlers, siteURL string) *chi.Mux {
 		r.With(middleware.RequestSize(maxBodyBytes)).Post("/", handlers.Order.CreateCustom)
 
 		r.Group(func(r chi.Router) {
-			// TODO: r.use(requireAdmin)
+			r.Use(httpmw.RequireAuth(tokens))
+
 			r.Get("/", handlers.Order.GetAll)
 			r.Get("/custom", handlers.Order.GetAllCustomOrders)
 			r.Get("/{orderID}", handlers.Order.GetOne)

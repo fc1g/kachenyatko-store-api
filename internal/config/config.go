@@ -20,6 +20,7 @@ const (
 	defaultDBPingTimeout       = 2 * time.Second
 	unsetTelegramChatID        = 0
 	defaultTelegramSendTimeout = 10 * time.Second
+	defaultAccessTokenTTL      = 24 * time.Hour
 )
 
 type Environment string
@@ -39,6 +40,7 @@ type Config struct {
 	Storage     Storage
 	Telegram    Telegram
 	Site        Site
+	Auth        Auth
 }
 
 type HTTP struct {
@@ -76,6 +78,12 @@ type Telegram struct {
 
 type Site struct {
 	URL string `validate:"required,http_url"`
+}
+
+type Auth struct {
+	AccessPrivateKey string        `validate:"required,base64"`
+	AccessIssuer     string        `validate:"required"`
+	AccessTokenTTL   time.Duration `validate:"gt=0,lte=24h"`
 }
 
 func Load(v validation.Validator) (*Config, error) {
@@ -118,6 +126,11 @@ func Load(v validation.Validator) (*Config, error) {
 		},
 		Site: Site{
 			URL: env.getString("SITE_URL"),
+		},
+		Auth: Auth{
+			AccessPrivateKey: env.getString("AUTH_ACCESS_PRIVATE_KEY"),
+			AccessIssuer:     env.getString("AUTH_ACCESS_ISSUER"),
+			AccessTokenTTL:   env.getDuration("AUTH_ACCESS_TOKEN_TTL", defaultAccessTokenTTL),
 		},
 	}
 
