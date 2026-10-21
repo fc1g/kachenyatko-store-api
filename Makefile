@@ -2,7 +2,7 @@
 export
 
 .SILENT:
-.PHONY: up down clean dev sqlc migrate migrate-down migrate-status psql swag
+.PHONY: up down clean dev sqlc migrate migrate-down migrate-status psql swag admin
 
 up:
 	docker compose up
@@ -33,3 +33,6 @@ psql:
 
 swag:
 	go tool swag init -g cmd/server/main.go -o docs --parseInternal
+
+admin:
+	go run ./cmd/create-admin
