@@ -73,9 +73,11 @@ func (s *UserService) GetOne(ctx context.Context, id uuid.UUID) (UserRow, error)
 	}, nil
 }
 
+// UpdateUserInput holds the new email for a user.
 type UpdateUserInput struct {
+	// New email; must be unique, case-insensitive
 	Email string `json:"email" validate:"required,email,max=254" format:"email" maxLength:"254" example:"user@example.com"`
-}
+} // @name UpdateUserInput
 
 func (s *UserService) Update(ctx context.Context, id uuid.UUID, input UpdateUserInput) (UserRow, error) {
 	input.Email = strings.TrimSpace(input.Email)

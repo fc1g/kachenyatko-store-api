@@ -72,6 +72,24 @@ definitions:
         example: OK
         type: string
     type: object
+  LoginInput:
+    properties:
+      email:
+        description: Admin email, case-insensitive
+        example: user@example.com
+        format: email
+        maxLength: 254
+        type: string
+      password:
+        description: Admin password
+        example: S3cureP@ssw0rd
+        format: password
+        maxLength: 128
+        type: string
+    required:
+    - email
+    - password
+    type: object
   Order:
     properties:
       created_at:
@@ -223,6 +241,17 @@ definitions:
     required:
     - status
     type: object
+  UpdateUserInput:
+    properties:
+      email:
+        description: New email; must be unique, case-insensitive
+        example: user@example.com
+        format: email
+        maxLength: 254
+        type: string
+    required:
+    - email
+    type: object
   User:
     properties:
       created_at:
@@ -239,16 +268,6 @@ definitions:
       updated_at:
         format: date-time
         type: string
-    type: object
-  service.UpdateUserInput:
-    properties:
-      email:
-        example: user@example.com
-        format: email
-        maxLength: 254
-        type: string
-    required:
-    - email
     type: object
 info:
   contact: {}
@@ -452,6 +471,89 @@ paths:
       summary: Liveness probe
       tags:
       - health
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Check email and password and set an HttpOnly access_token cookie
+      parameters:
+      - description: Email and password
+        in: body
+        name: credentials
+        required: true
+        schema:
+          $ref: '#/definitions/LoginInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          headers:
+            Set-Cookie:
+              description: access_token=<JWT>; Path=/; HttpOnly; SameSite=Lax
+              type: string
+          schema:
+            $ref: '#/definitions/User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Log in
+      tags:
+      - auth
+  /logout:
+    post:
+      description: Clear the access_token cookie. Works without a valid session, so
+        it never returns 401
+      responses:
+        "204":
+          description: No Content
+          headers:
+            Set-Cookie:
+              description: access_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00
+                GMT; Max-Age=0; HttpOnly; SameSite=Lax
+              type: string
+      summary: Log out
+      tags:
+      - auth
+  /me:
+    get:
+      description: Get the logged-in user from the access_token cookie. Use it on
+        page load to check whether the session is still valid
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/User'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Get current user
+      tags:
+      - auth
   /orders:
     get:
       description: All orders, both for catalog toys and custom ones, sorted from
@@ -1212,7 +1314,7 @@ paths:
         name: user
         required: true
         schema:
-          $ref: '#/definitions/service.UpdateUserInput'
+          $ref: '#/definitions/UpdateUserInput'
       produces:
       - application/json
       responses:
