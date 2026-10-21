@@ -49,7 +49,7 @@ func (h *ToyHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	details, err := h.service.Create(r.Context(), input)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -72,7 +72,7 @@ func (h *ToyHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *ToyHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := parsePagination(r)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -80,7 +80,7 @@ func (h *ToyHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 
 	details, err := h.service.GetAll(r.Context(), categorySlug, limit, offset)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -102,13 +102,13 @@ func (h *ToyHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 func (h *ToyHandler) GetOne(w http.ResponseWriter, r *http.Request) {
 	id, err := parseIDParam(r, ToyIDParam)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
 	details, err := h.service.GetOne(r.Context(), id)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -133,7 +133,7 @@ func (h *ToyHandler) GetOne(w http.ResponseWriter, r *http.Request) {
 func (h *ToyHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := parseIDParam(r, ToyIDParam)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -144,7 +144,7 @@ func (h *ToyHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	detail, err := h.service.Update(r.Context(), id, input)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -166,13 +166,13 @@ func (h *ToyHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *ToyHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := parseIDParam(r, ToyIDParam)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
 	err = h.service.Delete(r.Context(), id)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 

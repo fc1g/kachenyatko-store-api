@@ -8,7 +8,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func writeError(w http.ResponseWriter, r *http.Request, err error) {
+func WriteError(w http.ResponseWriter, r *http.Request, err error) {
 	logger := zerolog.Ctx(r.Context())
 
 	var appErr apperr.Error
@@ -26,6 +26,10 @@ func statusFor(code apperr.Code) int {
 	switch code {
 	case apperr.CodeInvalid:
 		return http.StatusBadRequest
+	case apperr.CodeUnauthorized:
+		return http.StatusUnauthorized
+	case apperr.CodeForbidden:
+		return http.StatusForbidden
 	case apperr.CodeNotFound:
 		return http.StatusNotFound
 	case apperr.CodeConflict:

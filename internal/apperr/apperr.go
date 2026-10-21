@@ -4,6 +4,8 @@ type Code string
 
 const (
 	CodeInvalid         Code = "INVALID"
+	CodeUnauthorized    Code = "UNAUTHORIZED"
+	CodeForbidden       Code = "FORBIDDEN"
 	CodeNotFound        Code = "NOT_FOUND"
 	CodeConflict        Code = "CONFLICT"
 	CodePayloadTooLarge Code = "PAYLOAD_TOO_LARGE"

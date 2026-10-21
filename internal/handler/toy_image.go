@@ -50,13 +50,13 @@ func NewToyImageHandler(svc toyImageService, urls urlBuilder) *ToyImageHandler {
 func (h *ToyImageHandler) Create(w http.ResponseWriter, r *http.Request) {
 	toyID, err := parseIDParam(r, ToyIDParam)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
 	err = r.ParseMultipartForm(multipartMaxMemory)
 	if err != nil {
-		writeError(w, r, requestBodyError(err, "invalid multipart form"))
+		WriteError(w, r, requestBodyError(err, "invalid multipart form"))
 		return
 	}
 
@@ -65,7 +65,7 @@ func (h *ToyImageHandler) Create(w http.ResponseWriter, r *http.Request) {
 	for _, fh := range headers {
 		file, err := fh.Open()
 		if err != nil {
-			writeError(w, r, err)
+			WriteError(w, r, err)
 			return
 		}
 		defer func() {
@@ -79,7 +79,7 @@ func (h *ToyImageHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	images, err := h.service.Create(r.Context(), toyID, files)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -100,13 +100,13 @@ func (h *ToyImageHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *ToyImageHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	toyID, err := parseIDParam(r, ToyIDParam)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
 	images, err := h.service.GetAll(r.Context(), toyID)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -129,19 +129,19 @@ func (h *ToyImageHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 func (h *ToyImageHandler) GetOne(w http.ResponseWriter, r *http.Request) {
 	toyID, err := parseIDParam(r, ToyIDParam)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
 	imageID, err := parseIDParam(r, ToyImageIDParam)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
 	image, err := h.service.GetOne(r.Context(), toyID, imageID)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -164,19 +164,19 @@ func (h *ToyImageHandler) GetOne(w http.ResponseWriter, r *http.Request) {
 func (h *ToyImageHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	toyID, err := parseIDParam(r, ToyIDParam)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
 	imageID, err := parseIDParam(r, ToyImageIDParam)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
 	err = h.service.Delete(r.Context(), toyID, imageID)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 

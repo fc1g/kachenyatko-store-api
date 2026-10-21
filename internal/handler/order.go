@@ -46,7 +46,7 @@ func NewOrderHandler(svc orderService) *OrderHandler {
 func (h *OrderHandler) CreateForToy(w http.ResponseWriter, r *http.Request) {
 	toyID, err := parseIDParam(r, ToyIDParam)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -78,7 +78,7 @@ func (h *OrderHandler) create(w http.ResponseWriter, r *http.Request, toyID *uui
 
 	order, err := h.service.Create(r.Context(), toyID, input)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -101,7 +101,7 @@ func (h *OrderHandler) create(w http.ResponseWriter, r *http.Request, toyID *uui
 func (h *OrderHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := parsePagination(r)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -111,7 +111,7 @@ func (h *OrderHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 		Status: orderStatus,
 	}, limit, offset)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -134,7 +134,7 @@ func (h *OrderHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 func (h *OrderHandler) GetAllCustomOrders(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := parsePagination(r)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -144,7 +144,7 @@ func (h *OrderHandler) GetAllCustomOrders(w http.ResponseWriter, r *http.Request
 		Status: orderStatus,
 	}, limit, offset)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -168,13 +168,13 @@ func (h *OrderHandler) GetAllCustomOrders(w http.ResponseWriter, r *http.Request
 func (h *OrderHandler) GetAllOrdersByToyID(w http.ResponseWriter, r *http.Request) {
 	toyID, err := parseIDParam(r, ToyIDParam)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
 	limit, offset, err := parsePagination(r)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -184,7 +184,7 @@ func (h *OrderHandler) GetAllOrdersByToyID(w http.ResponseWriter, r *http.Reques
 		Status: orderStatus,
 	}, limit, offset)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -206,13 +206,13 @@ func (h *OrderHandler) GetAllOrdersByToyID(w http.ResponseWriter, r *http.Reques
 func (h *OrderHandler) GetOne(w http.ResponseWriter, r *http.Request) {
 	id, err := parseIDParam(r, OrderIDParam)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
 	order, err := h.service.GetOne(r.Context(), id)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -237,7 +237,7 @@ func (h *OrderHandler) GetOne(w http.ResponseWriter, r *http.Request) {
 func (h *OrderHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	id, err := parseIDParam(r, OrderIDParam)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -248,7 +248,7 @@ func (h *OrderHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 
 	order, err := h.service.UpdateStatus(r.Context(), id, input)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 

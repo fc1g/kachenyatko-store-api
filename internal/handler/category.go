@@ -49,7 +49,7 @@ func (h *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	category, err := h.service.Create(r.Context(), input)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -70,13 +70,13 @@ func (h *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *CategoryHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := parsePagination(r)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
 	categories, err := h.service.GetAll(r.Context(), limit, offset)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -99,7 +99,7 @@ func (h *CategoryHandler) GetOne(w http.ResponseWriter, r *http.Request) {
 
 	category, err := h.service.GetOne(r.Context(), slug)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -125,7 +125,7 @@ func (h *CategoryHandler) GetOne(w http.ResponseWriter, r *http.Request) {
 func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := parseIDParam(r, CategoryIDParam)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -136,7 +136,7 @@ func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	category, err := h.service.Update(r.Context(), id, input)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -159,13 +159,13 @@ func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *CategoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := parseIDParam(r, CategoryIDParam)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
 	err = h.service.Delete(r.Context(), id)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 

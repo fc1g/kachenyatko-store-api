@@ -34,7 +34,7 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(v); err != nil {
-		writeError(w, r, requestBodyError(err, "invalid request body"))
+		WriteError(w, r, requestBodyError(err, "invalid request body"))
 		return false
 	}
 	return true

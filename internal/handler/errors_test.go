@@ -22,6 +22,12 @@ func TestStatusFor(t *testing.T) {
 			name: "invalid maps to 400", code: apperr.CodeInvalid, want: http.StatusBadRequest,
 		},
 		{
+			name: "unauthorized maps to 401", code: apperr.CodeUnauthorized, want: http.StatusUnauthorized,
+		},
+		{
+			name: "forbidden maps to 403", code: apperr.CodeForbidden, want: http.StatusForbidden,
+		},
+		{
 			name: "not found maps to 404", code: apperr.CodeNotFound, want: http.StatusNotFound,
 		},
 		{
@@ -69,7 +75,7 @@ func TestWriteError(t *testing.T) {
 
 			assert := assert.New(t)
 
-			writeError(w, r, tt.err)
+			WriteError(w, r, tt.err)
 
 			assert.Equal(tt.wantStatus, w.Code)
 			assert.Equal(contentTypeJSON, w.Header().Get("Content-Type"))

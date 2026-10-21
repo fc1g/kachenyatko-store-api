@@ -40,13 +40,13 @@ func NewUserHandler(svc userService) *UserHandler {
 func (h *UserHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := parsePagination(r)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
 	users, err := h.service.GetAll(r.Context(), limit, offset)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -68,13 +68,13 @@ func (h *UserHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) GetOne(w http.ResponseWriter, r *http.Request) {
 	id, err := parseIDParam(r, UserIDParam)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
 	user, err := h.service.GetOne(r.Context(), id)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -100,7 +100,7 @@ func (h *UserHandler) GetOne(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := parseIDParam(r, UserIDParam)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -111,7 +111,7 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.service.Update(r.Context(), id, input)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -133,13 +133,13 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := parseIDParam(r, UserIDParam)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
 	err = h.service.Delete(r.Context(), id)
 	if err != nil {
-		writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
