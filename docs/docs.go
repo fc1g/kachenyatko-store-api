@@ -17,7 +17,7 @@ const docTemplate = `{
     "paths": {
         "/categories": {
             "get": {
-                "description": "Categories sorted by name, paginated with limit/offset",
+                "description": "Categories sorted by name, paginated with limit/offset. The response includes the total number of categories",
                 "produces": [
                     "application/json"
                 ],
@@ -30,7 +30,7 @@ const docTemplate = `{
                         "maximum": 100,
                         "minimum": 1,
                         "type": "integer",
-                        "default": 20,
+                        "default": 9,
                         "description": "Page size",
                         "name": "limit",
                         "in": "query"
@@ -48,10 +48,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Category"
-                            }
+                            "$ref": "#/definitions/CategoryPage"
                         }
                     },
                     "400": {
@@ -309,7 +306,7 @@ const docTemplate = `{
         },
         "/login": {
             "post": {
-                "description": "Check email and password and set an HttpOnly access_token cookie",
+                "description": "Check email and password and set an HttpOnly access_token cookie. Limited to 5 attempts per minute per client IP; exceeding it returns 429",
                 "consumes": [
                     "application/json"
                 ],
@@ -358,6 +355,12 @@ const docTemplate = `{
                     },
                     "413": {
                         "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -454,7 +457,7 @@ const docTemplate = `{
                         "maximum": 100,
                         "minimum": 1,
                         "type": "integer",
-                        "default": 20,
+                        "default": 9,
                         "description": "Page size",
                         "name": "limit",
                         "in": "query"
@@ -472,10 +475,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Order"
-                            }
+                            "$ref": "#/definitions/OrderPage"
                         }
                     },
                     "400": {
@@ -493,7 +493,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Order a toy that is not in the catalog. The message describing the toy is required",
+                "description": "Order a toy that is not in the catalog. The message describing the toy is required. Limited to 10 orders per 10 minutes per client IP across both order endpoints; exceeding it returns 429",
                 "consumes": [
                     "application/json"
                 ],
@@ -534,6 +534,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/ErrorResponse"
                         }
                     },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -568,7 +574,7 @@ const docTemplate = `{
                         "maximum": 100,
                         "minimum": 1,
                         "type": "integer",
-                        "default": 20,
+                        "default": 9,
                         "description": "Page size",
                         "name": "limit",
                         "in": "query"
@@ -586,10 +592,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Order"
-                            }
+                            "$ref": "#/definitions/OrderPage"
                         }
                     },
                     "400": {
@@ -723,7 +726,7 @@ const docTemplate = `{
         },
         "/readyz": {
             "get": {
-                "description": "Reports whether the service can handle requests: pings the database with a 2s timeout",
+                "description": "Reports whether the service can handle requests: pings the database with a timeout (DB_PING_TIMEOUT)",
                 "produces": [
                     "application/json"
                 ],
@@ -749,7 +752,7 @@ const docTemplate = `{
         },
         "/toys": {
             "get": {
-                "description": "Toys sorted from newest to oldest, paginated with limit/offset",
+                "description": "Toys sorted from newest to oldest, paginated with limit/offset. The response includes the total number of toys",
                 "produces": [
                     "application/json"
                 ],
@@ -768,7 +771,7 @@ const docTemplate = `{
                         "maximum": 100,
                         "minimum": 1,
                         "type": "integer",
-                        "default": 20,
+                        "default": 9,
                         "description": "Page size",
                         "name": "limit",
                         "in": "query"
@@ -786,10 +789,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Toy"
-                            }
+                            "$ref": "#/definitions/ToyPage"
                         }
                     },
                     "400": {
@@ -842,8 +842,71 @@ const docTemplate = `{
                             "$ref": "#/definitions/ErrorResponse"
                         }
                     },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
                     "413": {
                         "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/toys/bestsellers": {
+            "get": {
+                "description": "Toys sorted by number of orders (most ordered first), then from newest to oldest. Toys without orders are included at the end. Paginated with limit/offset. The response includes the total number of toys",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "toys"
+                ],
+                "summary": "List bestsellers",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by category slug, e.g. soft-toys",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 9,
+                        "description": "Page size",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "minimum": 0,
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Number of items to skip",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ToyPage"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -954,6 +1017,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/ErrorResponse"
                         }
                     },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
                     "413": {
                         "description": "Request Entity Too Large",
                         "schema": {
@@ -1057,7 +1126,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Upload 1-10 images (JPEG, PNG or WebP, up to 5 MB each) in the \"images\" field. New images are appended after existing ones",
+                "description": "Upload 1-5 images (JPEG, PNG or WebP, up to 5 MB each) in the \"images\" field. New images are appended after existing ones. A toy can have at most 5 images in total; exceeding it returns 409",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -1268,7 +1337,7 @@ const docTemplate = `{
                         "maximum": 100,
                         "minimum": 1,
                         "type": "integer",
-                        "default": 20,
+                        "default": 9,
                         "description": "Page size",
                         "name": "limit",
                         "in": "query"
@@ -1286,10 +1355,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Order"
-                            }
+                            "$ref": "#/definitions/OrderPage"
                         }
                     },
                     "400": {
@@ -1307,7 +1373,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Place an order for a toy from the catalog. The message is optional",
+                "description": "Place an order for a toy from the catalog. The message is optional. Limited to 10 orders per 10 minutes per client IP across both order endpoints; exceeding it returns 429",
                 "consumes": [
                     "application/json"
                 ],
@@ -1362,6 +1428,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/ErrorResponse"
                         }
                     },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -1386,7 +1458,7 @@ const docTemplate = `{
                         "maximum": 100,
                         "minimum": 1,
                         "type": "integer",
-                        "default": 20,
+                        "default": 9,
                         "description": "Page size",
                         "name": "limit",
                         "in": "query"
@@ -1630,16 +1702,39 @@ const docTemplate = `{
                 }
             }
         },
+        "CategoryPage": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Category"
+                    }
+                },
+                "total": {
+                    "description": "Total number of categories, across all pages",
+                    "type": "integer",
+                    "minimum": 0,
+                    "example": 27
+                }
+            }
+        },
         "CreateOrderInput": {
             "type": "object",
             "required": [
                 "phone"
             ],
             "properties": {
-                "message": {
-                    "description": "What the customer wants; required for custom orders without a toy",
+                "details": {
+                    "description": "Description of what the customer wants; required for custom orders without a toy",
                     "type": "string",
                     "maxLength": 2000,
+                    "example": "A grey rabbit, about 25cm tall with long ears"
+                },
+                "message": {
+                    "description": "Optional comment for any order",
+                    "type": "string",
+                    "maxLength": 500,
                     "example": "Would like it in blue, please"
                 },
                 "phone": {
@@ -1657,9 +1752,12 @@ const docTemplate = `{
                     "type": "string",
                     "enum": [
                         "INVALID",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
                         "NOT_FOUND",
                         "CONFLICT",
                         "PAYLOAD_TOO_LARGE",
+                        "TOO_MANY_REQUESTS",
                         "INTERNAL"
                     ],
                     "example": "NOT_FOUND"
@@ -1692,14 +1790,13 @@ const docTemplate = `{
             ],
             "properties": {
                 "email": {
-                    "description": "Admin email, case-insensitive",
+                    "description": "Email, case-insensitive",
                     "type": "string",
                     "format": "email",
                     "maxLength": 254,
                     "example": "user@example.com"
                 },
                 "password": {
-                    "description": "Admin password",
                     "type": "string",
                     "format": "password",
                     "maxLength": 128,
@@ -1714,6 +1811,10 @@ const docTemplate = `{
                     "type": "string",
                     "format": "date-time"
                 },
+                "details": {
+                    "type": "string",
+                    "example": "Would like it in blue, please"
+                },
                 "id": {
                     "type": "string",
                     "format": "uuid",
@@ -1721,7 +1822,7 @@ const docTemplate = `{
                 },
                 "message": {
                     "type": "string",
-                    "example": "Would like it in blue, please"
+                    "example": "Please contact me via Telegram rather than calling"
                 },
                 "phone": {
                     "type": "string",
@@ -1745,6 +1846,23 @@ const docTemplate = `{
                 "updated_at": {
                     "type": "string",
                     "format": "date-time"
+                }
+            }
+        },
+        "OrderPage": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Order"
+                    }
+                },
+                "total": {
+                    "description": "Total number of orders, across all pages",
+                    "type": "integer",
+                    "minimum": 0,
+                    "example": 46
                 }
             }
         },
@@ -1886,6 +2004,23 @@ const docTemplate = `{
                     "maxLength": 50,
                     "minLength": 1,
                     "example": "25x15 cm"
+                }
+            }
+        },
+        "ToyPage": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Toy"
+                    }
+                },
+                "total": {
+                    "description": "Total number of toys, across all pages",
+                    "type": "integer",
+                    "minimum": 0,
+                    "example": 46
                 }
             }
         },

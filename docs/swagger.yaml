@@ -31,13 +31,30 @@ definitions:
     required:
     - name
     type: object
+  CategoryPage:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/Category'
+        type: array
+      total:
+        description: Total number of categories, across all pages
+        example: 27
+        minimum: 0
+        type: integer
+    type: object
   CreateOrderInput:
     properties:
-      message:
-        description: What the customer wants; required for custom orders without a
-          toy
-        example: Would like it in blue, please
+      details:
+        description: Description of what the customer wants; required for custom orders
+          without a toy
+        example: A grey rabbit, about 25cm tall with long ears
         maxLength: 2000
+        type: string
+      message:
+        description: Optional comment for any order
+        example: Would like it in blue, please
+        maxLength: 500
         type: string
       phone:
         description: Customer phone number in international format
@@ -52,9 +69,12 @@ definitions:
         description: Machine-readable error code
         enum:
         - INVALID
+        - UNAUTHORIZED
+        - FORBIDDEN
         - NOT_FOUND
         - CONFLICT
         - PAYLOAD_TOO_LARGE
+        - TOO_MANY_REQUESTS
         - INTERNAL
         example: NOT_FOUND
         type: string
@@ -75,13 +95,12 @@ definitions:
   LoginInput:
     properties:
       email:
-        description: Admin email, case-insensitive
+        description: Email, case-insensitive
         example: user@example.com
         format: email
         maxLength: 254
         type: string
       password:
-        description: Admin password
         example: S3cureP@ssw0rd
         format: password
         maxLength: 128
@@ -95,12 +114,15 @@ definitions:
       created_at:
         format: date-time
         type: string
+      details:
+        example: Would like it in blue, please
+        type: string
       id:
         example: 5d2c7b1a-3e4f-4a6b-9c8d-1e2f3a4b5c6d
         format: uuid
         type: string
       message:
-        example: Would like it in blue, please
+        example: Please contact me via Telegram rather than calling
         type: string
       phone:
         example: "+380671234567"
@@ -120,6 +142,18 @@ definitions:
       updated_at:
         format: date-time
         type: string
+    type: object
+  OrderPage:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/Order'
+        type: array
+      total:
+        description: Total number of orders, across all pages
+        example: 46
+        minimum: 0
+        type: integer
     type: object
   Toy:
     properties:
@@ -230,6 +264,18 @@ definitions:
     - name
     - size
     type: object
+  ToyPage:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/Toy'
+        type: array
+      total:
+        description: Total number of toys, across all pages
+        example: 46
+        minimum: 0
+        type: integer
+    type: object
   UpdateOrderInput:
     properties:
       status:
@@ -277,9 +323,10 @@ info:
 paths:
   /categories:
     get:
-      description: Categories sorted by name, paginated with limit/offset
+      description: Categories sorted by name, paginated with limit/offset. The response
+        includes the total number of categories
       parameters:
-      - default: 20
+      - default: 9
         description: Page size
         in: query
         maximum: 100
@@ -298,9 +345,7 @@ paths:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/Category'
-            type: array
+            $ref: '#/definitions/CategoryPage'
         "400":
           description: Bad Request
           schema:
@@ -475,7 +520,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Check email and password and set an HttpOnly access_token cookie
+      description: Check email and password and set an HttpOnly access_token cookie.
+        Limited to 5 attempts per minute per client IP; exceeding it returns 429
       parameters:
       - description: Email and password
         in: body
@@ -504,6 +550,10 @@ paths:
             $ref: '#/definitions/ErrorResponse'
         "413":
           description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "429":
+          description: Too Many Requests
           schema:
             $ref: '#/definitions/ErrorResponse'
         "500":
@@ -566,7 +616,7 @@ paths:
         in: query
         name: status
         type: string
-      - default: 20
+      - default: 9
         description: Page size
         in: query
         maximum: 100
@@ -585,9 +635,7 @@ paths:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/Order'
-            type: array
+            $ref: '#/definitions/OrderPage'
         "400":
           description: Bad Request
           schema:
@@ -603,7 +651,8 @@ paths:
       consumes:
       - application/json
       description: Order a toy that is not in the catalog. The message describing
-        the toy is required
+        the toy is required. Limited to 10 orders per 10 minutes per client IP across
+        both order endpoints; exceeding it returns 429
       parameters:
       - description: Contact details and description of the toy
         in: body
@@ -624,6 +673,10 @@ paths:
             $ref: '#/definitions/ErrorResponse'
         "413":
           description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "429":
+          description: Too Many Requests
           schema:
             $ref: '#/definitions/ErrorResponse'
         "500":
@@ -721,7 +774,7 @@ paths:
         in: query
         name: status
         type: string
-      - default: 20
+      - default: 9
         description: Page size
         in: query
         maximum: 100
@@ -740,9 +793,7 @@ paths:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/Order'
-            type: array
+            $ref: '#/definitions/OrderPage'
         "400":
           description: Bad Request
           schema:
@@ -757,7 +808,7 @@ paths:
   /readyz:
     get:
       description: 'Reports whether the service can handle requests: pings the database
-        with a 2s timeout'
+        with a timeout (DB_PING_TIMEOUT)'
       produces:
       - application/json
       responses:
@@ -774,13 +825,14 @@ paths:
       - health
   /toys:
     get:
-      description: Toys sorted from newest to oldest, paginated with limit/offset
+      description: Toys sorted from newest to oldest, paginated with limit/offset.
+        The response includes the total number of toys
       parameters:
       - description: Filter by category slug, e.g. soft-toys
         in: query
         name: category
         type: string
-      - default: 20
+      - default: 9
         description: Page size
         in: query
         maximum: 100
@@ -799,9 +851,7 @@ paths:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/Toy'
-            type: array
+            $ref: '#/definitions/ToyPage'
         "400":
           description: Bad Request
           schema:
@@ -834,6 +884,10 @@ paths:
             $ref: '#/definitions/Toy'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "409":
+          description: Conflict
           schema:
             $ref: '#/definitions/ErrorResponse'
         "413":
@@ -941,6 +995,10 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/ErrorResponse'
         "413":
           description: Request Entity Too Large
           schema:
@@ -986,8 +1044,9 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: Upload 1-10 images (JPEG, PNG or WebP, up to 5 MB each) in the
-        "images" field. New images are appended after existing ones
+      description: Upload 1-5 images (JPEG, PNG or WebP, up to 5 MB each) in the "images"
+        field. New images are appended after existing ones. A toy can have at most
+        5 images in total; exceeding it returns 409
       parameters:
       - description: Toy ID
         format: uuid
@@ -1124,7 +1183,7 @@ paths:
         in: query
         name: status
         type: string
-      - default: 20
+      - default: 9
         description: Page size
         in: query
         maximum: 100
@@ -1143,9 +1202,7 @@ paths:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/Order'
-            type: array
+            $ref: '#/definitions/OrderPage'
         "400":
           description: Bad Request
           schema:
@@ -1160,7 +1217,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Place an order for a toy from the catalog. The message is optional
+      description: Place an order for a toy from the catalog. The message is optional.
+        Limited to 10 orders per 10 minutes per client IP across both order endpoints;
+        exceeding it returns 429
       parameters:
       - description: Toy ID
         format: uuid
@@ -1193,6 +1252,10 @@ paths:
           description: Request Entity Too Large
           schema:
             $ref: '#/definitions/ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
@@ -1200,11 +1263,52 @@ paths:
       summary: Order a toy
       tags:
       - orders
+  /toys/bestsellers:
+    get:
+      description: Toys sorted by number of orders (most ordered first), then from
+        newest to oldest. Toys without orders are included at the end. Paginated with
+        limit/offset. The response includes the total number of toys
+      parameters:
+      - description: Filter by category slug, e.g. soft-toys
+        in: query
+        name: category
+        type: string
+      - default: 9
+        description: Page size
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Number of items to skip
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ToyPage'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: List bestsellers
+      tags:
+      - toys
   /users:
     get:
       description: Users sorted from oldest to newest, paginated with limit/offset
       parameters:
-      - default: 20
+      - default: 9
         description: Page size
         in: query
         maximum: 100
