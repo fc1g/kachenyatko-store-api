@@ -2,7 +2,7 @@
 
 **/.DS_Store
 tmp
-/server
+/build
 
 .agents
 skills-lock.json

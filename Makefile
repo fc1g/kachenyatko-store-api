@@ -2,7 +2,7 @@
 export
 
 .SILENT:
-.PHONY: up down clean dev build sqlc migrate migrate-down migrate-status psql swag admin
+.PHONY: up down clean dev build-server build-create-admin sqlc migrate migrate-down migrate-status psql swag admin
 
 up:
 	docker compose up
@@ -16,8 +16,11 @@ clean:
 dev:
 	air
 
-build:
-	GOOS=linux GOARCH=amd64 go build -o server ./cmd/server
+build-server:
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o build/server ./cmd/server
+
+build-create-admin:
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o build/create-admin ./cmd/create-admin
 
 sqlc:
 	cd db && sqlc generate

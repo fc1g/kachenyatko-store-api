@@ -189,7 +189,8 @@ Every error response has the same shape:
 | `make down`           | Stop and remove the containers; data is kept   |
 | `make clean`          | Stop containers and **delete volume**          |
 | `make dev`            | Run the server with hot reload (air)           |
-| `make build`          | Build the server binary for Linux amd64 (`./server`) |
+| `make build-server`   | Build the server binary for Linux arm64 (`build/server`) |
+| `make build-create-admin` | Build the create-admin binary for Linux arm64 (`build/create-admin`) |
 | `make migrate`        | Apply all pending migrations                   |
 | `make migrate-down`   | Roll back the last applied migration           |
 | `make migrate-status` | Show which migrations are applied              |
