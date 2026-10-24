@@ -4,62 +4,105 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/fc1g/kachenyatko-store-api/internal/auth"
+	"github.com/fc1g/kachenyatko-store-api/internal/category"
 	"github.com/fc1g/kachenyatko-store-api/internal/config"
-	"github.com/fc1g/kachenyatko-store-api/internal/handler"
-	"github.com/fc1g/kachenyatko-store-api/internal/repository"
+	"github.com/fc1g/kachenyatko-store-api/internal/database"
+	"github.com/fc1g/kachenyatko-store-api/internal/health"
+	"github.com/fc1g/kachenyatko-store-api/internal/order"
 	"github.com/fc1g/kachenyatko-store-api/internal/router"
-	"github.com/fc1g/kachenyatko-store-api/internal/service"
+	"github.com/fc1g/kachenyatko-store-api/internal/session"
 	"github.com/fc1g/kachenyatko-store-api/internal/storage"
 	"github.com/fc1g/kachenyatko-store-api/internal/telegram"
-	"github.com/fc1g/kachenyatko-store-api/internal/validation"
+	"github.com/fc1g/kachenyatko-store-api/internal/toy"
+	"github.com/fc1g/kachenyatko-store-api/internal/user"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
 )
+
+type waiter interface {
+	Wait(ctx context.Context) error
+}
 
 type App struct {
 	logger          zerolog.Logger
 	db              *pgxpool.Pool
 	server          *http.Server
+	notifications   waiter
 	shutdownTimeout time.Duration
 }
 
-func New(ctx context.Context, cfg *config.Config, logger zerolog.Logger, v validation.Validator) (*App, error) {
-	tokens, err := auth.NewTokenManager(cfg.Auth.AccessPrivateKey, cfg.Auth.AccessIssuer, cfg.Auth.AccessTokenTTL)
+func New(ctx context.Context, cfg *config.Config, logger zerolog.Logger) (*App, error) {
+	tokens, err := auth.NewTokenManager(cfg.Auth.SigningKey, cfg.Auth.Issuer, cfg.Auth.TokenTTL)
 	if err != nil {
 		return nil, err
 	}
 
-	pool, err := newDB(ctx, cfg.Database)
+	pool, err := database.Connect(ctx, cfg.Database.URL, cfg.Database.PingTimeout)
 	if err != nil {
 		return nil, err
 	}
 
-	r2, err := newStorage(ctx, cfg.Storage)
+	r2, err := storage.NewR2(ctx, storage.R2Config{
+		Endpoint:        cfg.Storage.Endpoint,
+		AccessKeyID:     cfg.Storage.AccessKeyID,
+		SecretAccessKey: cfg.Storage.SecretAccessKey,
+		Bucket:          cfg.Storage.BucketName,
+		PublicURL:       cfg.Storage.PublicURL,
+	})
+	if err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("init r2 storage: %w", err)
+	}
+
+	bot, err := telegram.NewBot(cfg.Telegram.AccessToken, cfg.Telegram.ChatID, cfg.Telegram.SendTimeout)
 	if err != nil {
 		pool.Close()
 		return nil, err
 	}
 
-	bot, err := telegram.NewBot(cfg.Telegram)
-	if err != nil {
-		pool.Close()
-		return nil, err
+	store := database.NewStore(pool)
+
+	sessionService := session.NewService(store, tokens)
+	userService := user.NewService(store)
+	categoryService := category.NewService(store)
+	toyService := toy.NewService(store, r2)
+	toyImageService := toy.NewImageService(store, r2)
+	orderService := order.NewService(store, bot, cfg.Frontend.URL)
+
+	secureCookies := cfg.Environment == config.EnvProduction
+
+	handlers := router.Handlers{
+		Health:   health.NewHandler(pool, cfg.Database.PingTimeout),
+		Session:  session.NewHandler(sessionService, userService, secureCookies),
+		User:     user.NewHandler(userService),
+		Category: category.NewHandler(categoryService),
+		Toy:      toy.NewHandler(toyService, r2),
+		ToyImage: toy.NewImageHandler(toyImageService, r2),
+		Order:    order.NewHandler(orderService),
 	}
 
-	d := deps{pool: pool, r2: r2, bot: bot, tokens: tokens, v: v, cfg: cfg}
-	handlers := newHandlers(d)
-	r := router.New(logger, handlers, tokens, cfg.Site.URL)
+	r := router.New(logger, handlers, tokens, cfg.HTTP.ClientIPHeader)
 
-	server := newHTTPServer(cfg.HTTP, r)
+	server := &http.Server{
+		Addr:              net.JoinHostPort(cfg.HTTP.Host, strconv.Itoa(cfg.HTTP.Port)),
+		Handler:           r,
+		ReadHeaderTimeout: cfg.HTTP.ReadHeaderTimeout,
+		ReadTimeout:       cfg.HTTP.ReadTimeout,
+		WriteTimeout:      cfg.HTTP.WriteTimeout,
+		IdleTimeout:       cfg.HTTP.IdleTimeout,
+	}
 
 	return &App{
 		logger:          logger,
 		db:              pool,
 		server:          server,
+		notifications:   orderService,
 		shutdownTimeout: cfg.HTTP.ShutdownTimeout,
 	}, nil
 }
@@ -88,6 +131,8 @@ func (a *App) Run(ctx context.Context, stop context.CancelFunc) error {
 		return fmt.Errorf("shutdown server: %w", err)
 	}
 
+	a.notifications.Wait(shutdownCtx)
+
 	a.logger.Info().Msg("server stopped")
 
 	return nil
@@ -95,82 +140,4 @@ func (a *App) Run(ctx context.Context, stop context.CancelFunc) error {
 
 func (a *App) Close() {
 	a.db.Close()
-}
-
-func newDB(ctx context.Context, cfg config.Database) (*pgxpool.Pool, error) {
-	pool, err := pgxpool.New(ctx, cfg.URL)
-	if err != nil {
-		return nil, fmt.Errorf("create db pool: %w", err)
-	}
-
-	pingCtx, cancel := context.WithTimeout(ctx, cfg.PingTimeout)
-	defer cancel()
-
-	if err := pool.Ping(pingCtx); err != nil {
-		pool.Close()
-		return nil, fmt.Errorf("ping db: %w", err)
-	}
-
-	return pool, nil
-}
-
-func newStorage(ctx context.Context, cfg config.Storage) (*storage.R2, error) {
-	r2, err := storage.NewR2(
-		ctx,
-		storage.R2Config{
-			Endpoint:        cfg.Endpoint,
-			AccessKeyID:     cfg.AccessKeyID,
-			SecretAccessKey: cfg.SecretAccessKey,
-			Bucket:          cfg.BucketName,
-			PublicURL:       cfg.PublicURL,
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("init r2 storage: %w", err)
-	}
-
-	return r2, nil
-}
-
-type deps struct {
-	pool   *pgxpool.Pool
-	r2     *storage.R2
-	bot    *telegram.Bot
-	tokens *auth.TokenManager
-	v      validation.Validator
-	cfg    *config.Config
-}
-
-func newHandlers(d deps) router.Handlers {
-	repo := repository.NewStore(d.pool)
-
-	categoryService := service.NewCategoryService(repo, d.v)
-	toyService := service.NewToyService(repo, d.r2, d.v)
-	toyImageService := service.NewToyImageService(repo, d.r2)
-	orderService := service.NewOrderService(repo, d.bot, d.v, d.cfg.Site.URL)
-	userService := service.NewUserService(repo, d.v)
-	authService := service.NewAuthService(repo, d.tokens, d.v)
-
-	secureCookies := d.cfg.Environment == config.EnvProduction
-
-	return router.Handlers{
-		Health:   handler.NewHealthHandler(d.pool, d.cfg.Database.PingTimeout),
-		Category: handler.NewCategoryHandler(categoryService),
-		Toy:      handler.NewToyHandler(toyService, d.r2),
-		ToyImage: handler.NewToyImageHandler(toyImageService, d.r2),
-		Order:    handler.NewOrderHandler(orderService),
-		User:     handler.NewUserHandler(userService),
-		Auth:     handler.NewAuthHandler(authService, userService, secureCookies),
-	}
-}
-
-func newHTTPServer(cfg config.HTTP, h http.Handler) *http.Server {
-	return &http.Server{
-		Addr:              fmt.Sprintf(":%d", cfg.Port),
-		Handler:           h,
-		ReadHeaderTimeout: cfg.ReadHeaderTimeout,
-		ReadTimeout:       cfg.ReadTimeout,
-		WriteTimeout:      cfg.WriteTimeout,
-		IdleTimeout:       cfg.IdleTimeout,
-	}
 }

@@ -9,10 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fc1g/kachenyatko-store-api/internal/repository"
-	"github.com/fc1g/kachenyatko-store-api/internal/service"
-	"github.com/fc1g/kachenyatko-store-api/internal/validation"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/fc1g/kachenyatko-store-api/internal/database"
+	"github.com/fc1g/kachenyatko-store-api/internal/user"
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog/log"
 )
@@ -54,22 +52,15 @@ func run() error {
 		return fmt.Errorf("%s is required", envDBURL)
 	}
 
-	pool, err := pgxpool.New(ctx, dbURL)
+	pool, err := database.Connect(ctx, dbURL, dbPingTimeout)
 	if err != nil {
-		return fmt.Errorf("create db pool: %w", err)
+		return err
 	}
 	defer pool.Close()
 
-	pingCtx, cancel := context.WithTimeout(ctx, dbPingTimeout)
-	defer cancel()
+	userService := user.NewService(database.NewStore(pool))
 
-	if err := pool.Ping(pingCtx); err != nil {
-		return fmt.Errorf("ping db: %w", err)
-	}
-
-	authService := service.NewAuthService(repository.NewStore(pool), nil, validation.New())
-
-	user, err := authService.CreateAdmin(ctx, service.CreateAdminInput{
+	user, err := userService.Create(ctx, user.CreateUserInput{
 		Email:    email,
 		Password: password,
 	})
