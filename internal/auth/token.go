@@ -11,8 +11,6 @@ import (
 	"github.com/google/uuid"
 )
 
-const AccessTokenCookie = "access_token"
-
 type TokenManager struct {
 	privateKey ed25519.PrivateKey
 	publicKey  ed25519.PublicKey
