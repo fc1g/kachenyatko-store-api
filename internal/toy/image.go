@@ -1,4 +1,4 @@
-package service
+package toy
 
 import (
 	"context"
@@ -12,15 +12,18 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// keep in sync with swagger in handler/toy_image.go.
+// keep in sync with swagger in image_handler.go
 const (
-	MaxImageSize        = 5 << 20
-	MaxImagesPerRequest = 10
+	maxImageSize    = 5 << 20
+	maxImagesPerToy = 5
 
 	maxParallelDeletes = 4
 	maxParallelUploads = 4
 
 	imageHeaderSize = 512
+
+	multipartOverhead   = 1 << 20
+	MaxImageUploadBytes = maxImagesPerToy*maxImageSize + multipartOverhead
 )
 
 var imageExtensions = map[string]string{
@@ -34,24 +37,24 @@ type imageStorage interface {
 	Delete(ctx context.Context, key string) error
 }
 
-type ImageFile struct {
+type imageFile struct {
 	Body io.ReadSeeker
 	Size int64
 }
 
 type preparedImage struct {
-	file        ImageFile
+	file        imageFile
 	key         string
 	contentType string
 }
 
-func detectImage(file ImageFile) (contentType, ext string, err error) {
+func detectImage(file imageFile) (contentType, ext string, err error) {
 	if file.Size <= 0 {
-		return "", "", apperr.Error{Code: apperr.CodeInvalid, Message: "image is empty"}
+		return "", "", apperr.Invalid("image is empty", nil)
 	}
 
-	if file.Size > MaxImageSize {
-		return "", "", apperr.Error{Code: apperr.CodeInvalid, Message: fmt.Sprintf("image must be at most %d MB", MaxImageSize>>20)}
+	if file.Size > maxImageSize {
+		return "", "", apperr.Invalid(fmt.Sprintf("image must be at most %d MB", maxImageSize>>20), nil)
 	}
 
 	head := make([]byte, imageHeaderSize)
@@ -63,7 +66,7 @@ func detectImage(file ImageFile) (contentType, ext string, err error) {
 	contentType = http.DetectContentType(head[:n])
 	ext, ok := imageExtensions[contentType]
 	if !ok {
-		return "", "", apperr.Error{Code: apperr.CodeInvalid, Message: "image must be JPEG, PNG or WebP"}
+		return "", "", apperr.Invalid("image must be JPEG, PNG or WebP", nil)
 	}
 
 	if _, err := file.Body.Seek(0, io.SeekStart); err != nil {

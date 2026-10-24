@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/fc1g/kachenyatko-store-api/internal/config"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 )
@@ -16,16 +15,16 @@ type Bot struct {
 	sendTimeout time.Duration
 }
 
-func NewBot(cfg config.Telegram) (*Bot, error) {
-	b, err := bot.New(cfg.AccessToken, bot.WithSkipGetMe())
+func NewBot(accessToken string, chatID int64, sendTimeout time.Duration) (*Bot, error) {
+	b, err := bot.New(accessToken, bot.WithSkipGetMe())
 	if err != nil {
 		return nil, fmt.Errorf("initialize telegram bot: %w", err)
 	}
 
 	return &Bot{
 		bot:         b,
-		chatID:      cfg.ChatID,
-		sendTimeout: cfg.SendTimeout,
+		chatID:      chatID,
+		sendTimeout: sendTimeout,
 	}, nil
 }
 
