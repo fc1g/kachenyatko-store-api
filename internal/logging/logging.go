@@ -5,22 +5,31 @@ import (
 	"os"
 	"time"
 
-	"github.com/fc1g/kachenyatko-store-api/internal/config"
 	"github.com/rs/zerolog"
 )
 
-func New(cfg config.Logging) (zerolog.Logger, error) {
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-
-	level, err := zerolog.ParseLevel(cfg.Level)
+func New(level string, pretty bool) (zerolog.Logger, error) {
+	parsedLevel, err := zerolog.ParseLevel(level)
 	if err != nil {
 		return zerolog.Logger{}, err
 	}
 
 	var out io.Writer = os.Stdout
-	if cfg.Pretty {
+	if pretty {
 		out = zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
 	}
 
-	return zerolog.New(out).Level(level).With().Timestamp().Logger(), nil
+	return zerolog.New(out).Level(parsedLevel).With().Timestamp().Logger(), nil
+}
+
+func Setup(level string, pretty bool) (zerolog.Logger, error) {
+	logger, err := New(level, pretty)
+	if err != nil {
+		return zerolog.Logger{}, err
+	}
+
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnixMs
+	zerolog.DefaultContextLogger = &logger
+
+	return logger, nil
 }
