@@ -87,7 +87,7 @@ func New(ctx context.Context, cfg *config.Config, logger zerolog.Logger) (*App, 
 		Order:    order.NewHandler(orderService),
 	}
 
-	r := router.New(logger, handlers, tokens, cfg.HTTP.ClientIPHeader)
+	r := router.New(logger, handlers, tokens, cfg.HTTP.ClientIPHeader, cfg.Frontend.URL)
 
 	server := &http.Server{
 		Addr:              net.JoinHostPort(cfg.HTTP.Host, strconv.Itoa(cfg.HTTP.Port)),

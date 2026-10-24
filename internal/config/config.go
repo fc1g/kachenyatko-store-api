@@ -32,7 +32,7 @@ type Config struct {
 
 type HTTP struct {
 	Host              string        `env:"HTTP_HOST"                envDefault:"127.0.0.1" validate:"required,ip"`
-	Port              int           `env:"PORT"                     envDefault:"3001" validate:"required,port"`
+	Port              int           `env:"PORT"                     envDefault:"8080" validate:"required,port"`
 	ReadHeaderTimeout time.Duration `env:"HTTP_READ_HEADER_TIMEOUT" envDefault:"5s"   validate:"gt=0"`
 	ReadTimeout       time.Duration `env:"HTTP_READ_TIMEOUT"        envDefault:"10s"  validate:"gt=0"`
 	WriteTimeout      time.Duration `env:"HTTP_WRITE_TIMEOUT"       envDefault:"10s"  validate:"gt=0"`

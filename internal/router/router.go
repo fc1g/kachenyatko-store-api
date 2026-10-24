@@ -2,6 +2,7 @@ package router
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	_ "github.com/fc1g/kachenyatko-store-api/docs"
@@ -17,6 +18,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
+	"github.com/rs/cors"
 	"github.com/rs/zerolog"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
@@ -29,6 +31,8 @@ const (
 
 	orderRequests = 10
 	orderWindow   = 10 * time.Minute
+
+	corsMaxAge = 10 * time.Minute
 )
 
 type Handlers struct {
@@ -41,12 +45,19 @@ type Handlers struct {
 	Order    *order.Handler
 }
 
-func New(logger zerolog.Logger, h Handlers, tokens *auth.TokenManager, clientIPHeader string) http.Handler {
+func New(logger zerolog.Logger, h Handlers, tokens *auth.TokenManager, clientIPHeader, siteURL string) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(clientIP(clientIPHeader))
 	r.Use(httpx.RequestLogger(logger))
 	r.Use(httpx.Recoverer)
+	r.Use(cors.New(cors.Options{
+		AllowedOrigins:   []string{strings.TrimSuffix(siteURL, "/")},
+		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete},
+		AllowedHeaders:   []string{"Content-Type"},
+		AllowCredentials: true,
+		MaxAge:           int(corsMaxAge.Seconds()),
+	}).Handler)
 
 	requireAuth := auth.RequireAuth(tokens)
 	limitBody := middleware.RequestSize(maxBodyBytes)

@@ -53,14 +53,14 @@ make dev
 go run ./cmd/server
 ```
 
-Check that it works (`.env.example` sets `PORT=3001`):
+Check that it works (`.env.example` sets `PORT=8080`):
 
 ```sh
-curl http://localhost:3001/livez    # {"status":"OK"}
-curl http://localhost:3001/readyz   # {"status":"OK"} when the database is reachable
+curl http://localhost:8080/livez    # {"status":"OK"}
+curl http://localhost:8080/readyz   # {"status":"OK"} when the database is reachable
 ```
 
-API docs: http://localhost:3001/swagger/index.html
+API docs: http://localhost:8080/swagger/index.html
 
 ### Project structure
 
@@ -96,8 +96,8 @@ The server reads its configuration from environment variables. In development th
 | Variable                   | Required | Default                       | Description                                                   |
 |----------------------------|----------|-------------------------------|---------------------------------------------------------------|
 | `ENVIRONMENT`              | yes      | —                             | `development` or `production`                                 |
-| `HTTP_HOST`                | no       | `127.0.0.1`                   | Listen address; `0.0.0.0` inside Docker. |
-| `PORT`                     | no       | `3001`                        | HTTP port                                                     |
+| `HTTP_HOST`                | no       | `127.0.0.1`                   | Listen address; keep `127.0.0.1` so only cloudflared on the same host can reach the API |
+| `PORT`                     | no       | `8080`                        | HTTP port                                                     |
 | `HTTP_CLIENT_IP_HEADER`    | no       | — (TCP connection address)    | Header with the real client IP from a trusted proxy; `CF-Connecting-IP` behind Cloudflare Tunnel. Never set it if the API port is reachable directly |
 | `HTTP_READ_HEADER_TIMEOUT` | no       | `5s`                          | Time to read request headers                                  |
 | `HTTP_READ_TIMEOUT`        | no       | `10s`                         | Time to read the whole request (image uploads get 3 minutes)  |
@@ -116,18 +116,18 @@ The server reads its configuration from environment variables. In development th
 | `TELEGRAM_ACCESS_TOKEN`    | yes      | —                             | Bot token from @BotFather                                     |
 | `TELEGRAM_CHAT_ID`         | yes      | —                             | Chat for order notifications (negative for groups)            |
 | `TELEGRAM_SEND_TIMEOUT`    | no       | `10s`                         | Timeout for sending a notification                            |
-| `SITE_URL`                 | yes      | —                             | Storefront URL, used for toy and admin links in Telegram notifications |
+| `SITE_URL`                 | yes      | —                             | Storefront URL: the only origin allowed by CORS, also used for links in Telegram notifications |
 | `AUTH_SIGNING_KEY`         | yes      | —                             | Base64 of the Ed25519 private key in PEM format               |
 | `AUTH_ISSUER`              | yes      | —                             | `iss` claim written to and checked in access tokens           |
 | `AUTH_TOKEN_TTL`           | no       | `24h`                         | Access token lifetime, at most `24h`                          |
 
 ### Deployment
 
-The API is meant to run behind **Cloudflare Tunnel → nginx**, with nginx serving the storefront and proxying the API from the **same origin** (e.g. `https://shop.com` and `https://shop.com/api/...`). Because of that the API has no CORS: browsers only call it from its own origin. In development, use the dev server proxy of the frontend (e.g. Vite `server.proxy`) for the same effect.
+The API runs on its own subdomain behind **Cloudflare Tunnel** (e.g. storefront on `https://shop.com`, API on `https://api.shop.com`). The browser calls it cross-origin, so the API allows CORS with credentials for exactly one origin, `SITE_URL`. The frontend must send requests with credentials (`fetch(url, { credentials: "include" })`) so the auth cookie is sent. Both hosts are on the same site, so the `SameSite=Lax` cookie works. In development, set `SITE_URL` to the frontend dev server (e.g. `http://localhost:5173`).
 
-The API and nginx ports must not be reachable from the internet, otherwise the client IP used for rate limiting can be spoofed. Network setup, nginx and cloudflared configs, Docker notes and post-deploy checks are in [INFRASTRUCTURE.md](INFRASTRUCTURE.md).
+The API port must not be reachable from the internet, otherwise the client IP used for rate limiting can be spoofed.
 
-On shutdown (`SIGINT`/`SIGTERM`) the server stops accepting requests, waits for in-flight ones and for pending Telegram notifications, all within `HTTP_SHUTDOWN_TIMEOUT`. Give the process manager more time than that (e.g. Docker `stop_grace_period: 15s`; the Docker default of 10s is too tight).
+On shutdown (`SIGINT`/`SIGTERM`) the server stops accepting requests, waits for in-flight ones and for pending Telegram notifications, all within `HTTP_SHUTDOWN_TIMEOUT`. Give the process manager more time than that (e.g. systemd `TimeoutStopSec=15s`).
 
 ### Authentication
 
@@ -189,6 +189,7 @@ Every error response has the same shape:
 | `make down`           | Stop and remove the containers; data is kept   |
 | `make clean`          | Stop containers and **delete volume**          |
 | `make dev`            | Run the server with hot reload (air)           |
+| `make build`          | Build the server binary for Linux amd64 (`./server`) |
 | `make migrate`        | Apply all pending migrations                   |
 | `make migrate-down`   | Roll back the last applied migration           |
 | `make migrate-status` | Show which migrations are applied              |
