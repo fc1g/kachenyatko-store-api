@@ -1,22 +1,24 @@
 -- name: CreateOrder :one
-INSERT INTO orders (toy_id, phone, message)
+INSERT INTO orders (toy_id, phone, message, details)
 VALUES
-  ($1, $2, $3)
+  ($1, $2, $3, $4)
 RETURNING
   id,
   toy_id,
   phone,
   message,
+  details,
   status,
   created_at,
   updated_at;
 
--- name: GetOrders :many
+-- name: ListOrders :many
 SELECT
   id,
   toy_id,
   phone,
   message,
+  details,
   status,
   created_at,
   updated_at
@@ -30,12 +32,13 @@ ORDER BY
   id
 LIMIT $1 OFFSET $2;
 
--- name: GetOrdersByToyID :many
+-- name: ListOrdersByToyID :many
 SELECT
   id,
   toy_id,
   phone,
   message,
+  details,
   status,
   created_at,
   updated_at
@@ -52,12 +55,13 @@ ORDER BY
   id
 LIMIT $1 OFFSET $2;
 
--- name: GetCustomOrders :many
+-- name: ListCustomOrders :many
 SELECT
   id,
   toy_id,
   phone,
   message,
+  details,
   status,
   created_at,
   updated_at
@@ -74,12 +78,46 @@ ORDER BY
   id
 LIMIT $1 OFFSET $2;
 
+-- name: CountOrders :one
+SELECT
+  COUNT(*)
+FROM
+  orders
+WHERE
+  sqlc.narg(status)::text IS NULL
+  OR status = sqlc.narg(status);
+
+-- name: CountOrdersByToyID :one
+SELECT
+  COUNT(*)
+FROM
+  orders
+WHERE
+  toy_id = sqlc.arg(toy_id)::uuid
+  AND (
+    sqlc.narg(status)::text IS NULL
+    OR status = sqlc.narg(status)
+  );
+
+-- name: CountCustomOrders :one
+SELECT
+  COUNT(*)
+FROM
+  orders
+WHERE
+  toy_id IS NULL
+  AND (
+    sqlc.narg(status)::text IS NULL
+    OR status = sqlc.narg(status)
+  );
+
 -- name: GetOrder :one
 SELECT
   id,
   toy_id,
   phone,
   message,
+  details,
   status,
   created_at,
   updated_at
@@ -101,6 +139,7 @@ RETURNING
   toy_id,
   phone,
   message,
+  details,
   status,
   created_at,
   updated_at;

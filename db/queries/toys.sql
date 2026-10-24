@@ -1,3 +1,11 @@
+-- name: LockToy :one
+SELECT
+  id
+FROM
+  toys
+WHERE
+  id = $1 FOR NO KEY UPDATE;
+
 -- name: CreateToy :one
 INSERT INTO toys (
   category_id, name, description, size,
@@ -15,7 +23,7 @@ RETURNING
   created_at,
   updated_at;
 
--- name: GetToys :many
+-- name: ListToys :many
 SELECT
   sqlc.embed(toys),
   sqlc.embed(categories)
@@ -29,6 +37,43 @@ ORDER BY
   toys.created_at DESC,
   toys.id
 LIMIT $1 OFFSET $2;
+
+-- name: ListBestsellers :many
+SELECT
+  sqlc.embed(toys),
+  sqlc.embed(categories)
+FROM
+  toys
+  JOIN categories ON categories.id = toys.category_id
+  LEFT JOIN (
+    SELECT
+      toy_id,
+      COUNT(*) AS orders_count
+    FROM
+      orders
+    WHERE
+      toy_id IS NOT NULL
+    GROUP BY
+      toy_id
+  ) AS order_counts ON order_counts.toy_id = toys.id
+WHERE
+  sqlc.narg(category_slug)::text IS NULL
+  OR categories.slug = sqlc.narg(category_slug)
+ORDER BY
+  COALESCE(order_counts.orders_count, 0) DESC,
+  toys.created_at DESC,
+  toys.id
+LIMIT $1 OFFSET $2;
+
+-- name: CountToys :one
+SELECT
+  COUNT(*)
+FROM
+  toys
+  JOIN categories ON categories.id = toys.category_id
+WHERE
+  sqlc.narg(category_slug)::text IS NULL
+  OR categories.slug = sqlc.narg(category_slug);
 
 -- name: GetToy :one
 SELECT

@@ -2,7 +2,7 @@
 // versions:
 //   sqlc v1.31.1
 
-package repository
+package sqlc
 
 import (
 	"time"
@@ -22,7 +22,8 @@ type Order struct {
 	ID        uuid.UUID
 	ToyID     *uuid.UUID
 	Phone     string
-	Message   string
+	Message   *string
+	Details   *string
 	Status    string
 	CreatedAt time.Time
 	UpdatedAt time.Time

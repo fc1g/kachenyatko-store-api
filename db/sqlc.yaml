@@ -5,7 +5,8 @@ sql:
     engine: "postgresql"
     gen:
       go:
-        out: "../internal/repository"
+        package: "sqlc"
+        out: "../internal/database/sqlc"
         sql_package: "pgx/v5"
         emit_empty_slices: true
         emit_interface: true

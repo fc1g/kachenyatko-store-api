@@ -23,7 +23,7 @@ RETURNING
   created_at,
   updated_at;
 
--- name: GetCategories :many
+-- name: ListCategories :many
 SELECT
   id,
   name,
@@ -35,6 +35,12 @@ FROM
 ORDER BY
   name
 LIMIT $1 OFFSET $2;
+
+-- name: CountCategories :one
+SELECT
+  COUNT(*)
+FROM
+  categories;
 
 -- name: GetCategory :one
 SELECT

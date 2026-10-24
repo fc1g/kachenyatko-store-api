@@ -10,5 +10,7 @@ CREATE TABLE toys (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE INDEX toys_category_id_idx ON toys (category_id);
+
 -- +goose Down
 DROP TABLE IF EXISTS toys;

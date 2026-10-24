@@ -3,13 +3,29 @@
 //   sqlc v1.31.1
 // source: toy_images.sql
 
-package repository
+package sqlc
 
 import (
 	"context"
 
 	"github.com/google/uuid"
 )
+
+const countToyImages = `-- name: CountToyImages :one
+SELECT
+  COUNT(*)
+FROM
+  toy_images
+WHERE
+  toy_id = $1
+`
+
+func (q *Queries) CountToyImages(ctx context.Context, toyID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countToyImages, toyID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
 
 const createToyImage = `-- name: CreateToyImage :one
 INSERT INTO toy_images (toy_id, storage_key, position)
@@ -137,7 +153,7 @@ func (q *Queries) GetToyImage(ctx context.Context, arg GetToyImageParams) (ToyIm
 	return i, err
 }
 
-const getToyImagesByToyIDs = `-- name: GetToyImagesByToyIDs :many
+const listToyImagesByToyIDs = `-- name: ListToyImagesByToyIDs :many
 SELECT
   id,
   toy_id,
@@ -154,8 +170,8 @@ ORDER BY
   position
 `
 
-func (q *Queries) GetToyImagesByToyIDs(ctx context.Context, toyIds []uuid.UUID) ([]ToyImage, error) {
-	rows, err := q.db.Query(ctx, getToyImagesByToyIDs, toyIds)
+func (q *Queries) ListToyImagesByToyIDs(ctx context.Context, toyIds []uuid.UUID) ([]ToyImage, error) {
+	rows, err := q.db.Query(ctx, listToyImagesByToyIDs, toyIds)
 	if err != nil {
 		return nil, err
 	}

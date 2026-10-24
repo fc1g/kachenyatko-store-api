@@ -3,7 +3,7 @@
 //   sqlc v1.31.1
 // source: users.sql
 
-package repository
+package sqlc
 
 import (
 	"context"
@@ -119,7 +119,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow
 	return i, err
 }
 
-const getUsers = `-- name: GetUsers :many
+const listUsers = `-- name: ListUsers :many
 SELECT
   id,
   email,
@@ -133,27 +133,27 @@ ORDER BY
 LIMIT $1 OFFSET $2
 `
 
-type GetUsersParams struct {
+type ListUsersParams struct {
 	Limit  int32
 	Offset int32
 }
 
-type GetUsersRow struct {
+type ListUsersRow struct {
 	ID        uuid.UUID
 	Email     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
 
-func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error) {
-	rows, err := q.db.Query(ctx, getUsers, arg.Limit, arg.Offset)
+func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUsersRow, error) {
+	rows, err := q.db.Query(ctx, listUsers, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []GetUsersRow{}
+	items := []ListUsersRow{}
 	for rows.Next() {
-		var i GetUsersRow
+		var i ListUsersRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Email,
@@ -200,6 +200,45 @@ type UpdateUserEmailRow struct {
 func (q *Queries) UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams) (UpdateUserEmailRow, error) {
 	row := q.db.QueryRow(ctx, updateUserEmail, arg.ID, arg.Email)
 	var i UpdateUserEmailRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateUserPassword = `-- name: UpdateUserPassword :one
+UPDATE
+  users
+SET
+  hashed_password = $2,
+  updated_at = NOW()
+WHERE
+  id = $1
+RETURNING
+  id,
+  email,
+  created_at,
+  updated_at
+`
+
+type UpdateUserPasswordParams struct {
+	ID             uuid.UUID
+	HashedPassword string
+}
+
+type UpdateUserPasswordRow struct {
+	ID        uuid.UUID
+	Email     string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) (UpdateUserPasswordRow, error) {
+	row := q.db.QueryRow(ctx, updateUserPassword, arg.ID, arg.HashedPassword)
+	var i UpdateUserPasswordRow
 	err := row.Scan(
 		&i.ID,
 		&i.Email,

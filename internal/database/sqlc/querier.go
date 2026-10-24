@@ -2,7 +2,7 @@
 // versions:
 //   sqlc v1.31.1
 
-package repository
+package sqlc
 
 import (
 	"context"
@@ -11,6 +11,12 @@ import (
 )
 
 type Querier interface {
+	CountCategories(ctx context.Context) (int64, error)
+	CountCustomOrders(ctx context.Context, status *string) (int64, error)
+	CountOrders(ctx context.Context, status *string) (int64, error)
+	CountOrdersByToyID(ctx context.Context, arg CountOrdersByToyIDParams) (int64, error)
+	CountToyImages(ctx context.Context, toyID uuid.UUID) (int64, error)
+	CountToys(ctx context.Context, categorySlug *string) (int64, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error)
 	CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error)
 	CreateToy(ctx context.Context, arg CreateToyParams) (Toy, error)
@@ -21,25 +27,28 @@ type Querier interface {
 	DeleteToyImage(ctx context.Context, arg DeleteToyImageParams) (string, error)
 	DeleteToyImagesByToyID(ctx context.Context, toyID uuid.UUID) ([]string, error)
 	DeleteUser(ctx context.Context, id uuid.UUID) (int64, error)
-	GetCategories(ctx context.Context, arg GetCategoriesParams) ([]Category, error)
 	GetCategory(ctx context.Context, id uuid.UUID) (Category, error)
 	GetCategoryBySlug(ctx context.Context, slug string) (Category, error)
-	GetCustomOrders(ctx context.Context, arg GetCustomOrdersParams) ([]Order, error)
 	GetOrder(ctx context.Context, id uuid.UUID) (Order, error)
-	GetOrders(ctx context.Context, arg GetOrdersParams) ([]Order, error)
-	GetOrdersByToyID(ctx context.Context, arg GetOrdersByToyIDParams) ([]Order, error)
 	GetToy(ctx context.Context, id uuid.UUID) (GetToyRow, error)
 	GetToyImage(ctx context.Context, arg GetToyImageParams) (ToyImage, error)
-	GetToyImagesByToyIDs(ctx context.Context, toyIds []uuid.UUID) ([]ToyImage, error)
-	GetToys(ctx context.Context, arg GetToysParams) ([]GetToysRow, error)
 	GetUserByEmail(ctx context.Context, lower string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error)
-	GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error)
+	ListBestsellers(ctx context.Context, arg ListBestsellersParams) ([]ListBestsellersRow, error)
+	ListCategories(ctx context.Context, arg ListCategoriesParams) ([]Category, error)
+	ListCustomOrders(ctx context.Context, arg ListCustomOrdersParams) ([]Order, error)
+	ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order, error)
+	ListOrdersByToyID(ctx context.Context, arg ListOrdersByToyIDParams) ([]Order, error)
+	ListToyImagesByToyIDs(ctx context.Context, toyIds []uuid.UUID) ([]ToyImage, error)
+	ListToys(ctx context.Context, arg ListToysParams) ([]ListToysRow, error)
+	ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUsersRow, error)
+	LockToy(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
 	ToyExists(ctx context.Context, id uuid.UUID) (bool, error)
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error)
 	UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) (Order, error)
 	UpdateToy(ctx context.Context, arg UpdateToyParams) (Toy, error)
 	UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams) (UpdateUserEmailRow, error)
+	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) (UpdateUserPasswordRow, error)
 	UpsertCategory(ctx context.Context, arg UpsertCategoryParams) (Category, error)
 }
 

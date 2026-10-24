@@ -3,13 +3,27 @@
 //   sqlc v1.31.1
 // source: categories.sql
 
-package repository
+package sqlc
 
 import (
 	"context"
 
 	"github.com/google/uuid"
 )
+
+const countCategories = `-- name: CountCategories :one
+SELECT
+  COUNT(*)
+FROM
+  categories
+`
+
+func (q *Queries) CountCategories(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countCategories)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
 
 const createCategory = `-- name: CreateCategory :one
 INSERT INTO categories (name, slug)
@@ -54,51 +68,6 @@ func (q *Queries) DeleteCategory(ctx context.Context, id uuid.UUID) (int64, erro
 		return 0, err
 	}
 	return result.RowsAffected(), nil
-}
-
-const getCategories = `-- name: GetCategories :many
-SELECT
-  id,
-  name,
-  slug,
-  created_at,
-  updated_at
-FROM
-  categories
-ORDER BY
-  name
-LIMIT $1 OFFSET $2
-`
-
-type GetCategoriesParams struct {
-	Limit  int32
-	Offset int32
-}
-
-func (q *Queries) GetCategories(ctx context.Context, arg GetCategoriesParams) ([]Category, error) {
-	rows, err := q.db.Query(ctx, getCategories, arg.Limit, arg.Offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Category{}
-	for rows.Next() {
-		var i Category
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Slug,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const getCategory = `-- name: GetCategory :one
@@ -151,6 +120,51 @@ func (q *Queries) GetCategoryBySlug(ctx context.Context, slug string) (Category,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listCategories = `-- name: ListCategories :many
+SELECT
+  id,
+  name,
+  slug,
+  created_at,
+  updated_at
+FROM
+  categories
+ORDER BY
+  name
+LIMIT $1 OFFSET $2
+`
+
+type ListCategoriesParams struct {
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) ListCategories(ctx context.Context, arg ListCategoriesParams) ([]Category, error) {
+	rows, err := q.db.Query(ctx, listCategories, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Category{}
+	for rows.Next() {
+		var i Category
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateCategory = `-- name: UpdateCategory :one

@@ -19,7 +19,7 @@ RETURNING
   created_at,
   updated_at;
 
--- name: GetToyImagesByToyIDs :many
+-- name: ListToyImagesByToyIDs :many
 SELECT
   id,
   toy_id,
@@ -34,6 +34,14 @@ WHERE
 ORDER BY
   toy_id,
   position;
+
+-- name: CountToyImages :one
+SELECT
+  COUNT(*)
+FROM
+  toy_images
+WHERE
+  toy_id = $1;
 
 -- name: GetToyImage :one
 SELECT

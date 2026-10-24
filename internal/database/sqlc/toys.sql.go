@@ -3,13 +3,31 @@
 //   sqlc v1.31.1
 // source: toys.sql
 
-package repository
+package sqlc
 
 import (
 	"context"
 
 	"github.com/google/uuid"
 )
+
+const countToys = `-- name: CountToys :one
+SELECT
+  COUNT(*)
+FROM
+  toys
+  JOIN categories ON categories.id = toys.category_id
+WHERE
+  $1::text IS NULL
+  OR categories.slug = $1
+`
+
+func (q *Queries) CountToys(ctx context.Context, categorySlug *string) (int64, error) {
+	row := q.db.QueryRow(ctx, countToys, categorySlug)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
 
 const createToy = `-- name: CreateToy :one
 INSERT INTO toys (
@@ -111,42 +129,54 @@ func (q *Queries) GetToy(ctx context.Context, id uuid.UUID) (GetToyRow, error) {
 	return i, err
 }
 
-const getToys = `-- name: GetToys :many
+const listBestsellers = `-- name: ListBestsellers :many
 SELECT
   toys.id, toys.category_id, toys.name, toys.description, toys.size, toys.materials, toys.created_at, toys.updated_at,
   categories.id, categories.name, categories.slug, categories.created_at, categories.updated_at
 FROM
   toys
   JOIN categories ON categories.id = toys.category_id
+  LEFT JOIN (
+    SELECT
+      toy_id,
+      COUNT(*) AS orders_count
+    FROM
+      orders
+    WHERE
+      toy_id IS NOT NULL
+    GROUP BY
+      toy_id
+  ) AS order_counts ON order_counts.toy_id = toys.id
 WHERE
   $3::text IS NULL
   OR categories.slug = $3
 ORDER BY
+  COALESCE(order_counts.orders_count, 0) DESC,
   toys.created_at DESC,
   toys.id
 LIMIT $1 OFFSET $2
 `
 
-type GetToysParams struct {
+type ListBestsellersParams struct {
 	Limit        int32
 	Offset       int32
 	CategorySlug *string
 }
 
-type GetToysRow struct {
+type ListBestsellersRow struct {
 	Toy      Toy
 	Category Category
 }
 
-func (q *Queries) GetToys(ctx context.Context, arg GetToysParams) ([]GetToysRow, error) {
-	rows, err := q.db.Query(ctx, getToys, arg.Limit, arg.Offset, arg.CategorySlug)
+func (q *Queries) ListBestsellers(ctx context.Context, arg ListBestsellersParams) ([]ListBestsellersRow, error) {
+	rows, err := q.db.Query(ctx, listBestsellers, arg.Limit, arg.Offset, arg.CategorySlug)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []GetToysRow{}
+	items := []ListBestsellersRow{}
 	for rows.Next() {
-		var i GetToysRow
+		var i ListBestsellersRow
 		if err := rows.Scan(
 			&i.Toy.ID,
 			&i.Toy.CategoryID,
@@ -170,6 +200,83 @@ func (q *Queries) GetToys(ctx context.Context, arg GetToysParams) ([]GetToysRow,
 		return nil, err
 	}
 	return items, nil
+}
+
+const listToys = `-- name: ListToys :many
+SELECT
+  toys.id, toys.category_id, toys.name, toys.description, toys.size, toys.materials, toys.created_at, toys.updated_at,
+  categories.id, categories.name, categories.slug, categories.created_at, categories.updated_at
+FROM
+  toys
+  JOIN categories ON categories.id = toys.category_id
+WHERE
+  $3::text IS NULL
+  OR categories.slug = $3
+ORDER BY
+  toys.created_at DESC,
+  toys.id
+LIMIT $1 OFFSET $2
+`
+
+type ListToysParams struct {
+	Limit        int32
+	Offset       int32
+	CategorySlug *string
+}
+
+type ListToysRow struct {
+	Toy      Toy
+	Category Category
+}
+
+func (q *Queries) ListToys(ctx context.Context, arg ListToysParams) ([]ListToysRow, error) {
+	rows, err := q.db.Query(ctx, listToys, arg.Limit, arg.Offset, arg.CategorySlug)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListToysRow{}
+	for rows.Next() {
+		var i ListToysRow
+		if err := rows.Scan(
+			&i.Toy.ID,
+			&i.Toy.CategoryID,
+			&i.Toy.Name,
+			&i.Toy.Description,
+			&i.Toy.Size,
+			&i.Toy.Materials,
+			&i.Toy.CreatedAt,
+			&i.Toy.UpdatedAt,
+			&i.Category.ID,
+			&i.Category.Name,
+			&i.Category.Slug,
+			&i.Category.CreatedAt,
+			&i.Category.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockToy = `-- name: LockToy :one
+SELECT
+  id
+FROM
+  toys
+WHERE
+  id = $1 FOR NO KEY UPDATE
+`
+
+func (q *Queries) LockToy(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, lockToy, id)
+	var id_2 uuid.UUID
+	err := row.Scan(&id_2)
+	return id_2, err
 }
 
 const toyExists = `-- name: ToyExists :one

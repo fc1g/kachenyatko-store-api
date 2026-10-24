@@ -3,7 +3,7 @@
 //   sqlc v1.31.1
 // source: orders.sql
 
-package repository
+package sqlc
 
 import (
 	"context"
@@ -11,15 +11,78 @@ import (
 	"github.com/google/uuid"
 )
 
+const countCustomOrders = `-- name: CountCustomOrders :one
+SELECT
+  COUNT(*)
+FROM
+  orders
+WHERE
+  toy_id IS NULL
+  AND (
+    $1::text IS NULL
+    OR status = $1
+  )
+`
+
+func (q *Queries) CountCustomOrders(ctx context.Context, status *string) (int64, error) {
+	row := q.db.QueryRow(ctx, countCustomOrders, status)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countOrders = `-- name: CountOrders :one
+SELECT
+  COUNT(*)
+FROM
+  orders
+WHERE
+  $1::text IS NULL
+  OR status = $1
+`
+
+func (q *Queries) CountOrders(ctx context.Context, status *string) (int64, error) {
+	row := q.db.QueryRow(ctx, countOrders, status)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countOrdersByToyID = `-- name: CountOrdersByToyID :one
+SELECT
+  COUNT(*)
+FROM
+  orders
+WHERE
+  toy_id = $1::uuid
+  AND (
+    $2::text IS NULL
+    OR status = $2
+  )
+`
+
+type CountOrdersByToyIDParams struct {
+	ToyID  uuid.UUID
+	Status *string
+}
+
+func (q *Queries) CountOrdersByToyID(ctx context.Context, arg CountOrdersByToyIDParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countOrdersByToyID, arg.ToyID, arg.Status)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createOrder = `-- name: CreateOrder :one
-INSERT INTO orders (toy_id, phone, message)
+INSERT INTO orders (toy_id, phone, message, details)
 VALUES
-  ($1, $2, $3)
+  ($1, $2, $3, $4)
 RETURNING
   id,
   toy_id,
   phone,
   message,
+  details,
   status,
   created_at,
   updated_at
@@ -28,79 +91,29 @@ RETURNING
 type CreateOrderParams struct {
 	ToyID   *uuid.UUID
 	Phone   string
-	Message string
+	Message *string
+	Details *string
 }
 
 func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error) {
-	row := q.db.QueryRow(ctx, createOrder, arg.ToyID, arg.Phone, arg.Message)
+	row := q.db.QueryRow(ctx, createOrder,
+		arg.ToyID,
+		arg.Phone,
+		arg.Message,
+		arg.Details,
+	)
 	var i Order
 	err := row.Scan(
 		&i.ID,
 		&i.ToyID,
 		&i.Phone,
 		&i.Message,
+		&i.Details,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
-}
-
-const getCustomOrders = `-- name: GetCustomOrders :many
-SELECT
-  id,
-  toy_id,
-  phone,
-  message,
-  status,
-  created_at,
-  updated_at
-FROM
-  orders
-WHERE
-  toy_id IS NULL
-  AND (
-    $3::text IS NULL
-    OR status = $3
-  )
-ORDER BY
-  created_at DESC,
-  id
-LIMIT $1 OFFSET $2
-`
-
-type GetCustomOrdersParams struct {
-	Limit  int32
-	Offset int32
-	Status *string
-}
-
-func (q *Queries) GetCustomOrders(ctx context.Context, arg GetCustomOrdersParams) ([]Order, error) {
-	rows, err := q.db.Query(ctx, getCustomOrders, arg.Limit, arg.Offset, arg.Status)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Order{}
-	for rows.Next() {
-		var i Order
-		if err := rows.Scan(
-			&i.ID,
-			&i.ToyID,
-			&i.Phone,
-			&i.Message,
-			&i.Status,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const getOrder = `-- name: GetOrder :one
@@ -109,6 +122,7 @@ SELECT
   toy_id,
   phone,
   message,
+  details,
   status,
   created_at,
   updated_at
@@ -126,6 +140,7 @@ func (q *Queries) GetOrder(ctx context.Context, id uuid.UUID) (Order, error) {
 		&i.ToyID,
 		&i.Phone,
 		&i.Message,
+		&i.Details,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -133,34 +148,38 @@ func (q *Queries) GetOrder(ctx context.Context, id uuid.UUID) (Order, error) {
 	return i, err
 }
 
-const getOrders = `-- name: GetOrders :many
+const listCustomOrders = `-- name: ListCustomOrders :many
 SELECT
   id,
   toy_id,
   phone,
   message,
+  details,
   status,
   created_at,
   updated_at
 FROM
   orders
 WHERE
-  $3::text IS NULL
-  OR status = $3
+  toy_id IS NULL
+  AND (
+    $3::text IS NULL
+    OR status = $3
+  )
 ORDER BY
   created_at DESC,
   id
 LIMIT $1 OFFSET $2
 `
 
-type GetOrdersParams struct {
+type ListCustomOrdersParams struct {
 	Limit  int32
 	Offset int32
 	Status *string
 }
 
-func (q *Queries) GetOrders(ctx context.Context, arg GetOrdersParams) ([]Order, error) {
-	rows, err := q.db.Query(ctx, getOrders, arg.Limit, arg.Offset, arg.Status)
+func (q *Queries) ListCustomOrders(ctx context.Context, arg ListCustomOrdersParams) ([]Order, error) {
+	rows, err := q.db.Query(ctx, listCustomOrders, arg.Limit, arg.Offset, arg.Status)
 	if err != nil {
 		return nil, err
 	}
@@ -173,6 +192,7 @@ func (q *Queries) GetOrders(ctx context.Context, arg GetOrdersParams) ([]Order, 
 			&i.ToyID,
 			&i.Phone,
 			&i.Message,
+			&i.Details,
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -187,12 +207,69 @@ func (q *Queries) GetOrders(ctx context.Context, arg GetOrdersParams) ([]Order, 
 	return items, nil
 }
 
-const getOrdersByToyID = `-- name: GetOrdersByToyID :many
+const listOrders = `-- name: ListOrders :many
 SELECT
   id,
   toy_id,
   phone,
   message,
+  details,
+  status,
+  created_at,
+  updated_at
+FROM
+  orders
+WHERE
+  $3::text IS NULL
+  OR status = $3
+ORDER BY
+  created_at DESC,
+  id
+LIMIT $1 OFFSET $2
+`
+
+type ListOrdersParams struct {
+	Limit  int32
+	Offset int32
+	Status *string
+}
+
+func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order, error) {
+	rows, err := q.db.Query(ctx, listOrders, arg.Limit, arg.Offset, arg.Status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Order{}
+	for rows.Next() {
+		var i Order
+		if err := rows.Scan(
+			&i.ID,
+			&i.ToyID,
+			&i.Phone,
+			&i.Message,
+			&i.Details,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOrdersByToyID = `-- name: ListOrdersByToyID :many
+SELECT
+  id,
+  toy_id,
+  phone,
+  message,
+  details,
   status,
   created_at,
   updated_at
@@ -210,15 +287,15 @@ ORDER BY
 LIMIT $1 OFFSET $2
 `
 
-type GetOrdersByToyIDParams struct {
+type ListOrdersByToyIDParams struct {
 	Limit  int32
 	Offset int32
 	ToyID  uuid.UUID
 	Status *string
 }
 
-func (q *Queries) GetOrdersByToyID(ctx context.Context, arg GetOrdersByToyIDParams) ([]Order, error) {
-	rows, err := q.db.Query(ctx, getOrdersByToyID,
+func (q *Queries) ListOrdersByToyID(ctx context.Context, arg ListOrdersByToyIDParams) ([]Order, error) {
+	rows, err := q.db.Query(ctx, listOrdersByToyID,
 		arg.Limit,
 		arg.Offset,
 		arg.ToyID,
@@ -236,6 +313,7 @@ func (q *Queries) GetOrdersByToyID(ctx context.Context, arg GetOrdersByToyIDPara
 			&i.ToyID,
 			&i.Phone,
 			&i.Message,
+			&i.Details,
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -263,6 +341,7 @@ RETURNING
   toy_id,
   phone,
   message,
+  details,
   status,
   created_at,
   updated_at
@@ -281,6 +360,7 @@ func (q *Queries) UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusPa
 		&i.ToyID,
 		&i.Phone,
 		&i.Message,
+		&i.Details,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
