@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/fc1g/kachenyatko-store-api/internal/apperr"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog"
 )
 
@@ -14,15 +15,20 @@ type ErrorResponse struct {
 	Code string `json:"code" enums:"INVALID,UNAUTHORIZED,FORBIDDEN,NOT_FOUND,CONFLICT,PAYLOAD_TOO_LARGE,TOO_MANY_REQUESTS,INTERNAL" example:"NOT_FOUND"`
 	// Human-readable error message
 	Message string `json:"message" example:"category not found"`
+	// Request identifier for correlating with server logs
+	RequestID string `json:"request_id" example:"host/abc123-000001"`
 } // @name ErrorResponse
 
 func WriteError(w http.ResponseWriter, r *http.Request, err error) {
 	logger := zerolog.Ctx(r.Context())
 
+	reqID := middleware.GetReqID(r.Context())
+
 	if appErr, ok := errors.AsType[apperr.Error](err); ok && appErr.Code != apperr.CodeInternal {
 		WriteJSON(w, statusFor(appErr.Code), ErrorResponse{
-			Code:    string(appErr.Code),
-			Message: appErr.Message,
+			Code:      string(appErr.Code),
+			Message:   appErr.Message,
+			RequestID: reqID,
 		})
 		return
 	}
@@ -30,8 +36,9 @@ func WriteError(w http.ResponseWriter, r *http.Request, err error) {
 	msg := http.StatusText(http.StatusInternalServerError)
 	logger.Error().Err(err).Msg(msg)
 	WriteJSON(w, http.StatusInternalServerError, ErrorResponse{
-		Code:    string(apperr.CodeInternal),
-		Message: msg,
+		Code:      string(apperr.CodeInternal),
+		Message:   msg,
+		RequestID: reqID,
 	})
 }
 

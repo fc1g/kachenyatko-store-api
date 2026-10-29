@@ -48,6 +48,7 @@ type Handlers struct {
 func New(logger zerolog.Logger, h Handlers, tokens *auth.TokenManager, clientIPHeader, siteURL string) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
+	r.Use(httpx.ExposeRequestID)
 	r.Use(clientIP(clientIPHeader))
 	r.Use(httpx.RequestLogger(logger))
 	r.Use(httpx.Recoverer)

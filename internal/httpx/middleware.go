@@ -74,3 +74,10 @@ func Recoverer(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+func ExposeRequestID(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(middleware.RequestIDHeader, middleware.GetReqID(r.Context()))
+		next.ServeHTTP(w, r)
+	})
+}
