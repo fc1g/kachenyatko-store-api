@@ -96,9 +96,9 @@ The server reads its configuration from environment variables. In development th
 | Variable                   | Required | Default                       | Description                                                   |
 |----------------------------|----------|-------------------------------|---------------------------------------------------------------|
 | `ENVIRONMENT`              | yes      | —                             | `development` or `production`                                 |
-| `HTTP_HOST`                | no       | `127.0.0.1`                   | Listen address; keep `127.0.0.1` so only cloudflared on the same host can reach the API |
+| `HTTP_HOST`                | no       | `127.0.0.1`                   | Listen address; keep `127.0.0.1` so only processes on the same host (the storefront) can reach the API |
 | `PORT`                     | no       | `8080`                        | HTTP port                                                     |
-| `HTTP_CLIENT_IP_HEADER`    | no       | — (TCP connection address)    | Header with the real client IP from a trusted proxy; `CF-Connecting-IP` behind Cloudflare Tunnel. Never set it if the API port is reachable directly |
+| `HTTP_CLIENT_IP_HEADER`    | no       | — (TCP connection address)    | Header with the real client IP from a trusted proxy; `CF-Connecting-IP` in production (forwarded by the storefront). Never set it if the API port is reachable directly |
 | `HTTP_READ_HEADER_TIMEOUT` | no       | `5s`                          | Time to read request headers                                  |
 | `HTTP_READ_TIMEOUT`        | no       | `10s`                         | Time to read the whole request (image uploads get 3 minutes)  |
 | `HTTP_WRITE_TIMEOUT`       | no       | `10s`                         | Time to write the response (image uploads get 3 minutes)      |
@@ -116,16 +116,25 @@ The server reads its configuration from environment variables. In development th
 | `TELEGRAM_ACCESS_TOKEN`    | yes      | —                             | Bot token from @BotFather                                     |
 | `TELEGRAM_CHAT_ID`         | yes      | —                             | Chat for order notifications (negative for groups)            |
 | `TELEGRAM_SEND_TIMEOUT`    | no       | `10s`                         | Timeout for sending a notification                            |
-| `SITE_URL`                 | yes      | —                             | Storefront URL: the only origin allowed by CORS, also used for links in Telegram notifications |
+| `SITE_URL`                 | yes      | —                             | Public storefront URL, used for links in Telegram notifications and as the only origin allowed by CORS |
 | `AUTH_SIGNING_KEY`         | yes      | —                             | Base64 of the Ed25519 private key in PEM format               |
 | `AUTH_ISSUER`              | yes      | —                             | `iss` claim written to and checked in access tokens           |
 | `AUTH_TOKEN_TTL`           | no       | `24h`                         | Access token lifetime, at most `24h`                          |
 
 ### Deployment
 
-The API runs on its own subdomain behind **Cloudflare Tunnel** (e.g. storefront on `https://shop.com`, API on `https://api.shop.com`). The browser calls it cross-origin, so the API allows CORS with credentials for exactly one origin, `SITE_URL`. The frontend must send requests with credentials (`fetch(url, { credentials: "include" })`) so the auth cookie is sent. Both hosts are on the same site, so the `SameSite=Lax` cookie works. In development, set `SITE_URL` to the frontend dev server (e.g. `http://localhost:5173`).
+The storefront ([kachenyatko-store-web](https://github.com/fc1g/kachenyatko-store-web), Next.js) runs on the same host and calls the API **from its server**, never from the browser:
 
-The API port must not be reachable from the internet, otherwise the client IP used for rate limiting can be spoofed.
+```
+Browser ──▶ Cloudflare Tunnel ──▶ Next.js 127.0.0.1:3000 ──▶ API 127.0.0.1:8080 ──▶ PostgreSQL
+```
+
+- The API does not need a public hostname. Next.js reaches it at `http://127.0.0.1:8080`.
+- Next.js stores the access token in its own cookie and forwards it to the API in the `Cookie` header.
+- For the rate-limited routes (`POST /login` and order creation) Next.js forwards the `CF-Connecting-IP` header of the incoming request, so set `HTTP_CLIENT_IP_HEADER=CF-Connecting-IP` in production. Without it every customer shares one rate limit bucket.
+- CORS (`SITE_URL` as the only allowed origin) is needed only if a browser calls the API directly; the current storefront does not.
+
+The API port must not be reachable from the internet, otherwise the client IP used for rate limiting can be spoofed. Server setup and day-to-day commands are in [MAINTENANCE.md](MAINTENANCE.md).
 
 On shutdown (`SIGINT`/`SIGTERM`) the server stops accepting requests, waits for in-flight ones and for pending Telegram notifications, all within `HTTP_SHUTDOWN_TIMEOUT`. Give the process manager more time than that (e.g. systemd `TimeoutStopSec=15s`).
 
