@@ -15,7 +15,7 @@ const toyImagesPrefix = "toys"
 type imageRepository interface {
 	ToyExists(ctx context.Context, id uuid.UUID) (bool, error)
 	CreateToyImage(ctx context.Context, arg sqlc.CreateToyImageParams) (sqlc.ToyImage, error)
-	ListToyImagesByToyIDs(ctx context.Context, toyIds []uuid.UUID) ([]sqlc.ToyImage, error)
+	ListToyImagesByToyIDs(ctx context.Context, toyIDs []uuid.UUID) ([]sqlc.ToyImage, error)
 	CountToyImages(ctx context.Context, toyID uuid.UUID) (int64, error)
 	GetToyImage(ctx context.Context, arg sqlc.GetToyImageParams) (sqlc.ToyImage, error)
 	DeleteToyImage(ctx context.Context, arg sqlc.DeleteToyImageParams) (string, error)

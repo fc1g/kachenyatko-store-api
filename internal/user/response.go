@@ -15,12 +15,7 @@ type Response struct {
 } // @name User
 
 func ToResponse(u User) Response {
-	return Response{
-		ID:        u.ID,
-		Email:     u.Email,
-		CreatedAt: u.CreatedAt,
-		UpdatedAt: u.UpdatedAt,
-	}
+	return Response(u)
 }
 
 func ToResponses(u []User) []Response {

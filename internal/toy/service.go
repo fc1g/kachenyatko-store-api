@@ -12,7 +12,7 @@ import (
 )
 
 type toyRepository interface {
-	ListToyImagesByToyIDs(ctx context.Context, toyIds []uuid.UUID) ([]sqlc.ToyImage, error)
+	ListToyImagesByToyIDs(ctx context.Context, toyIDs []uuid.UUID) ([]sqlc.ToyImage, error)
 	CreateToy(ctx context.Context, arg sqlc.CreateToyParams) (sqlc.Toy, error)
 	ListToys(ctx context.Context, arg sqlc.ListToysParams) ([]sqlc.ListToysRow, error)
 	ListBestsellers(ctx context.Context, arg sqlc.ListBestsellersParams) ([]sqlc.ListBestsellersRow, error)

@@ -19,13 +19,13 @@ func WriteJSON(w http.ResponseWriter, status int, v any) {
 	if err != nil {
 		w.Header().Set("Content-Type", contentTypeText)
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
+		_, _ = w.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 		return
 	}
 
 	w.Header().Set("Content-Type", contentTypeJSON)
 	w.WriteHeader(status)
-	w.Write(data)
+	_, _ = w.Write(data)
 }
 
 func DecodeJSON(body io.ReadCloser, v any) error {
