@@ -215,10 +215,10 @@ func (s *Service) UpdateStatus(ctx context.Context, id uuid.UUID, input updateOr
 }
 
 func (s *Service) Wait(ctx context.Context) error {
-	doneCh := make(chan struct{}, 1)
-
+	doneCh := make(chan struct{})
 	go func() {
 		s.wg.Wait()
+		close(doneCh)
 	}()
 
 	select {
