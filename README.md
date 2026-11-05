@@ -7,7 +7,7 @@ REST API for a small handmade toy shop.
 - **Go** with [chi](https://github.com/go-chi/chi) router and [httprate](https://github.com/go-chi/httprate) for rate limiting
 - **PostgreSQL** via [pgx](https://github.com/jackc/pgx); queries generated with [sqlc](https://sqlc.dev), migrations with [goose](https://github.com/pressly/goose)
 - **Cloudflare R2** (S3-compatible) for toy images, via AWS SDK v2
-- **Telegram Bot API** via [go-telegram/bot](https://github.com/go-telegram/bot) for new order notifications
+- **Telegram Bot API** via [go-telegram/bot](https://github.com/go-telegram/bot) for new order notifications; undelivered ones are retried as a summary every 10 minutes
 - **JWT** (EdDSA / Ed25519) via [golang-jwt](https://github.com/golang-jwt/jwt) in an HttpOnly cookie, passwords hashed with [argon2id](https://github.com/alexedwards/argon2id)
 - [caarlos0/env](https://github.com/caarlos0/env) for configuration, [validator](https://github.com/go-playground/validator) for validation, [zerolog](https://github.com/rs/zerolog) for logging
 - **Swagger / OpenAPI** docs generated with [swag](https://github.com/swaggo/swag)
@@ -134,9 +134,15 @@ Browser ──▶ Cloudflare Tunnel ──▶ Next.js 127.0.0.1:3000 ──▶ A
 - For the rate-limited routes (`POST /login` and order creation) Next.js forwards the `CF-Connecting-IP` header of the incoming request, so set `HTTP_CLIENT_IP_HEADER=CF-Connecting-IP` in production. Without it every customer shares one rate limit bucket.
 - CORS (`SITE_URL` as the only allowed origin) is needed only if a browser calls the API directly; the current storefront does not.
 
-The API port must not be reachable from the internet, otherwise the client IP used for rate limiting can be spoofed. Server setup and day-to-day commands are in [MAINTENANCE.md](MAINTENANCE.md).
+The API port must not be reachable from the internet, otherwise the client IP used for rate limiting can be spoofed.
 
-On shutdown (`SIGINT`/`SIGTERM`) the server stops accepting requests, waits for in-flight ones and for pending Telegram notifications, all within `HTTP_SHUTDOWN_TIMEOUT`. Give the process manager more time than that (e.g. systemd `TimeoutStopSec=15s`).
+On shutdown (`SIGINT`/`SIGTERM`) the server stops accepting requests, waits for in-flight ones, pending Telegram notifications and a running missed-orders check, all within `HTTP_SHUTDOWN_TIMEOUT`. Give the process manager more time than that (e.g. systemd `TimeoutStopSec=15s`).
+
+### Order notifications
+
+A new order is sent to `TELEGRAM_CHAT_ID` right after it is created. When Telegram confirms delivery, the order gets `notified_at` (also returned in the API, `null` until then).
+
+If sending fails, nothing is lost: every 10 minutes the server looks for orders that are not closed, older than a minute and still have no `notified_at`. It sends one "Missed orders: N" message with a link to the admin panel and marks those orders as notified. The first check runs right after startup, so orders missed before a restart do not wait the full 10 minutes.
 
 ### Authentication
 
