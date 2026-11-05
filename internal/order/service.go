@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/fc1g/kachenyatko-store-api/internal/apperr"
 	"github.com/fc1g/kachenyatko-store-api/internal/database/sqlc"
@@ -17,11 +18,14 @@ type repository interface {
 	ListOrders(ctx context.Context, arg sqlc.ListOrdersParams) ([]sqlc.Order, error)
 	ListOrdersByToyID(ctx context.Context, arg sqlc.ListOrdersByToyIDParams) ([]sqlc.Order, error)
 	ListCustomOrders(ctx context.Context, arg sqlc.ListCustomOrdersParams) ([]sqlc.Order, error)
+	ListStaleUnnotifiedOrderIDs(ctx context.Context) ([]uuid.UUID, error)
 	CountOrders(ctx context.Context, status *string) (int64, error)
 	CountOrdersByToyID(ctx context.Context, arg sqlc.CountOrdersByToyIDParams) (int64, error)
 	CountCustomOrders(ctx context.Context, status *string) (int64, error)
 	GetOrder(ctx context.Context, id uuid.UUID) (sqlc.Order, error)
 	UpdateOrderStatus(ctx context.Context, arg sqlc.UpdateOrderStatusParams) (sqlc.Order, error)
+	MarkAsNotified(ctx context.Context, id uuid.UUID) (int64, error)
+	MarkAsNotifiedByIDs(ctx context.Context, orderIds []uuid.UUID) (int64, error)
 }
 
 type notifier interface {
@@ -60,11 +64,11 @@ func (in *createOrderInput) normalize() {
 	in.Details = strings.TrimSpace(in.Details)
 }
 
-func (s *Service) Create(ctx context.Context, toyID *uuid.UUID, input createOrderInput) (sqlc.Order, error) {
+func (s *Service) Create(ctx context.Context, toyID *uuid.UUID, input createOrderInput) (order, error) {
 	input.normalize()
 
 	if err := validation.Struct(input); err != nil {
-		return sqlc.Order{}, err
+		return order{}, err
 	}
 
 	var msg *string = nil
@@ -78,30 +82,52 @@ func (s *Service) Create(ctx context.Context, toyID *uuid.UUID, input createOrde
 	}
 
 	if toyID == nil && details == nil {
-		return sqlc.Order{}, apperr.Invalid("details is required for custom orders", nil)
+		return order{}, apperr.Invalid("details is required for custom orders", nil)
 	}
 
-	order, err := s.repo.CreateOrder(ctx, sqlc.CreateOrderParams{
+	row, err := s.repo.CreateOrder(ctx, sqlc.CreateOrderParams{
 		ToyID:   toyID,
 		Phone:   input.Phone,
 		Message: msg,
 		Details: details,
 	})
 	if err != nil {
-		return sqlc.Order{}, orderError("create order", err)
+		return order{}, orderError("create order", err)
 	}
 
-	s.notifyOrderCreated(ctx, order)
+	o := order(row)
+	s.notifyOrderCreated(ctx, o)
 
-	return order, nil
+	return o, nil
 }
 
 type orderFilter struct {
 	Status *string `validate:"omitempty,oneof=open closed"`
 }
 
+type order struct {
+	ID         uuid.UUID
+	ToyID      *uuid.UUID
+	Phone      string
+	Message    *string
+	Details    *string
+	Status     string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	NotifiedAt *time.Time
+}
+
+func toOrders(rows []sqlc.Order) []order {
+	orders := make([]order, 0, len(rows))
+	for _, o := range rows {
+		orders = append(orders, order(o))
+	}
+
+	return orders
+}
+
 type orderPage struct {
-	Orders []sqlc.Order
+	Orders []order
 	Total  int64
 }
 
@@ -110,7 +136,7 @@ func (s *Service) List(ctx context.Context, filter orderFilter, limit, offset in
 		return orderPage{}, err
 	}
 
-	orders, err := s.repo.ListOrders(ctx, sqlc.ListOrdersParams{
+	rows, err := s.repo.ListOrders(ctx, sqlc.ListOrdersParams{
 		Limit:  limit,
 		Offset: offset,
 		Status: filter.Status,
@@ -125,7 +151,7 @@ func (s *Service) List(ctx context.Context, filter orderFilter, limit, offset in
 	}
 
 	return orderPage{
-		Orders: orders,
+		Orders: toOrders(rows),
 		Total:  total,
 	}, nil
 }
@@ -135,7 +161,7 @@ func (s *Service) ListCustom(ctx context.Context, filter orderFilter, limit, off
 		return orderPage{}, err
 	}
 
-	orders, err := s.repo.ListCustomOrders(ctx, sqlc.ListCustomOrdersParams{
+	rows, err := s.repo.ListCustomOrders(ctx, sqlc.ListCustomOrdersParams{
 		Limit:  limit,
 		Offset: offset,
 		Status: filter.Status,
@@ -150,7 +176,7 @@ func (s *Service) ListCustom(ctx context.Context, filter orderFilter, limit, off
 	}
 
 	return orderPage{
-		Orders: orders,
+		Orders: toOrders(rows),
 		Total:  total,
 	}, nil
 }
@@ -160,7 +186,7 @@ func (s *Service) ListByToy(ctx context.Context, toyID uuid.UUID, filter orderFi
 		return orderPage{}, err
 	}
 
-	orders, err := s.repo.ListOrdersByToyID(ctx, sqlc.ListOrdersByToyIDParams{
+	rows, err := s.repo.ListOrdersByToyID(ctx, sqlc.ListOrdersByToyIDParams{
 		Limit:  limit,
 		Offset: offset,
 		ToyID:  toyID,
@@ -179,18 +205,18 @@ func (s *Service) ListByToy(ctx context.Context, toyID uuid.UUID, filter orderFi
 	}
 
 	return orderPage{
-		Orders: orders,
+		Orders: toOrders(rows),
 		Total:  total,
 	}, nil
 }
 
-func (s *Service) Get(ctx context.Context, id uuid.UUID) (sqlc.Order, error) {
-	order, err := s.repo.GetOrder(ctx, id)
+func (s *Service) Get(ctx context.Context, id uuid.UUID) (order, error) {
+	row, err := s.repo.GetOrder(ctx, id)
 	if err != nil {
-		return sqlc.Order{}, orderError("get order", err)
+		return order{}, orderError("get order", err)
 	}
 
-	return order, nil
+	return order(row), nil
 }
 
 // updateOrderInput is the request body for changing an order's status.
@@ -198,20 +224,20 @@ type updateOrderInput struct {
 	Status string `json:"status" validate:"required,oneof=open closed" enums:"open,closed" example:"closed"`
 } // @name UpdateOrderInput
 
-func (s *Service) UpdateStatus(ctx context.Context, id uuid.UUID, input updateOrderInput) (sqlc.Order, error) {
+func (s *Service) UpdateStatus(ctx context.Context, id uuid.UUID, input updateOrderInput) (order, error) {
 	if err := validation.Struct(input); err != nil {
-		return sqlc.Order{}, err
+		return order{}, err
 	}
 
-	order, err := s.repo.UpdateOrderStatus(ctx, sqlc.UpdateOrderStatusParams{
+	row, err := s.repo.UpdateOrderStatus(ctx, sqlc.UpdateOrderStatusParams{
 		ID:     id,
 		Status: input.Status,
 	})
 	if err != nil {
-		return sqlc.Order{}, orderError("update order", err)
+		return order{}, orderError("update order", err)
 	}
 
-	return order, nil
+	return order(row), nil
 }
 
 func (s *Service) Wait(ctx context.Context) error {
@@ -229,12 +255,69 @@ func (s *Service) Wait(ctx context.Context) error {
 	}
 }
 
-func (s *Service) notifyOrderCreated(ctx context.Context, order sqlc.Order) {
+func (s *Service) notifyOrderCreated(ctx context.Context, o order) {
 	ctx = context.WithoutCancel(ctx)
 
 	s.wg.Go(func() {
-		if err := s.notifier.SendMessage(ctx, formatOrderMessage(order, s.frontendURL)); err != nil {
-			zerolog.Ctx(ctx).Warn().Err(err).Str("order_id", order.ID.String()).Msg("send order notification")
+		if err := s.notifier.SendMessage(ctx, formatOrderMessage(o, s.frontendURL)); err != nil {
+			zerolog.Ctx(ctx).Warn().Err(err).Str("order_id", o.ID.String()).Msg("send order notification")
+			return
+		}
+
+		count, err := s.repo.MarkAsNotified(ctx, o.ID)
+		if err != nil {
+			zerolog.Ctx(ctx).Warn().Err(err).Str("order_id", o.ID.String()).Msg("mark order as notified")
+			return
+		}
+
+		if count == 0 {
+			zerolog.Ctx(ctx).Info().Str("order_id", o.ID.String()).Msg("order already notified")
+			return
 		}
 	})
+}
+
+func (s *Service) RunMissedOrdersNotifier(ctx context.Context) error {
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		if err := s.notifyMissedOrders(ctx); err != nil {
+			zerolog.Ctx(ctx).Warn().Err(err).Msg("notify missed orders")
+		}
+
+		select {
+		case <-ticker.C:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+func (s *Service) notifyMissedOrders(ctx context.Context) error {
+	ids, err := s.repo.ListStaleUnnotifiedOrderIDs(ctx)
+	if err != nil {
+		return orderError("list stale unnotified order ids", err)
+	}
+
+	if len(ids) == 0 {
+		return nil
+	}
+
+	if err := s.notifier.SendMessage(ctx, formatMissedOrdersMessage(ids, s.frontendURL)); err != nil {
+		return orderError("notify missed order", err)
+	}
+
+	count, err := s.repo.MarkAsNotifiedByIDs(ctx, ids)
+	if err != nil {
+		zerolog.Ctx(ctx).Warn().Err(err).Msg("mark orders as notified")
+		return nil
+	}
+
+	if count < int64(len(ids)) {
+		zerolog.Ctx(ctx).Info().Int("expected", len(ids)).Int64("updated", count).Msg("some missed orders were already marked as notified")
+		return nil
+	}
+
+	return nil
 }

@@ -82,6 +82,10 @@ definitions:
         description: Human-readable error message
         example: category not found
         type: string
+      request_id:
+        description: Request identifier for correlating with server logs
+        example: host/abc123-000001
+        type: string
     type: object
   HealthResponse:
     properties:
@@ -124,6 +128,12 @@ definitions:
       message:
         example: Please contact me via Telegram rather than calling
         type: string
+      notified_at:
+        description: When the shop was notified about the order; null if notification
+          has not succeeded yet
+        format: date-time
+        type: string
+        x-nullable: true
       phone:
         example: "+380671234567"
         type: string

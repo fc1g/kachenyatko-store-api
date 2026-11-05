@@ -27,6 +27,7 @@ import (
 
 type waiter interface {
 	Wait(ctx context.Context) error
+	RunMissedOrdersNotifier(ctx context.Context) error
 }
 
 type App struct {
@@ -109,6 +110,14 @@ func New(ctx context.Context, cfg *config.Config, logger zerolog.Logger) (*App, 
 
 func (a *App) Run(ctx context.Context, stop context.CancelFunc) error {
 	errCh := make(chan error, 1)
+	missedNotifierDone := make(chan struct{})
+
+	go func() {
+		if err := a.notifications.RunMissedOrdersNotifier(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			a.logger.Warn().Err(err).Msg("missed orders notifier stopped unexpectedly")
+		}
+		close(missedNotifierDone)
+	}()
 
 	a.logger.Info().Str("addr", a.server.Addr).Msg("http server started")
 	go func() {
@@ -131,7 +140,15 @@ func (a *App) Run(ctx context.Context, stop context.CancelFunc) error {
 		return fmt.Errorf("shutdown server: %w", err)
 	}
 
-	a.notifications.Wait(shutdownCtx)
+	if err := a.notifications.Wait(shutdownCtx); err != nil {
+		a.logger.Warn().Err(err).Msg("order notifications did not finish before shutdown")
+	}
+
+	select {
+	case <-missedNotifierDone:
+	case <-shutdownCtx.Done():
+		a.logger.Warn().Err(shutdownCtx.Err()).Msg("missed order notifications did not finish before shutdown")
+	}
 
 	a.logger.Info().Msg("server stopped")
 

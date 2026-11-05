@@ -10,7 +10,8 @@ RETURNING
   details,
   status,
   created_at,
-  updated_at;
+  updated_at,
+  notified_at;
 
 -- name: ListOrders :many
 SELECT
@@ -21,7 +22,8 @@ SELECT
   details,
   status,
   created_at,
-  updated_at
+  updated_at,
+  notified_at
 FROM
   orders
 WHERE
@@ -41,7 +43,8 @@ SELECT
   details,
   status,
   created_at,
-  updated_at
+  updated_at,
+  notified_at
 FROM
   orders
 WHERE
@@ -64,7 +67,8 @@ SELECT
   details,
   status,
   created_at,
-  updated_at
+  updated_at,
+  notified_at
 FROM
   orders
 WHERE
@@ -77,6 +81,16 @@ ORDER BY
   created_at DESC,
   id
 LIMIT $1 OFFSET $2;
+
+-- name: ListStaleUnnotifiedOrderIDs :many
+SELECT
+  id
+FROM
+  orders
+WHERE
+  notified_at IS NULL
+  AND status <> 'closed'
+  AND created_at < NOW() - INTERVAL '1 minute';
 
 -- name: CountOrders :one
 SELECT
@@ -120,7 +134,8 @@ SELECT
   details,
   status,
   created_at,
-  updated_at
+  updated_at,
+  notified_at
 FROM
   orders
 WHERE
@@ -142,4 +157,23 @@ RETURNING
   details,
   status,
   created_at,
-  updated_at;
+  updated_at,
+  notified_at;
+
+-- name: MarkAsNotified :execrows
+UPDATE
+  orders
+SET
+  notified_at = NOW()
+WHERE
+  id = $1
+  AND notified_at IS NULL;
+
+-- name: MarkAsNotifiedByIDs :execrows
+UPDATE
+  orders
+SET
+  notified_at = NOW()
+WHERE
+  id = ANY(sqlc.arg(order_ids)::uuid[])
+  AND notified_at IS NULL;

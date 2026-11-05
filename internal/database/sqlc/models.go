@@ -19,14 +19,15 @@ type Category struct {
 }
 
 type Order struct {
-	ID        uuid.UUID
-	ToyID     *uuid.UUID
-	Phone     string
-	Message   *string
-	Details   *string
-	Status    string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID         uuid.UUID
+	ToyID      *uuid.UUID
+	Phone      string
+	Message    *string
+	Details    *string
+	Status     string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	NotifiedAt *time.Time
 }
 
 type Toy struct {

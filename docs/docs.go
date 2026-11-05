@@ -1766,6 +1766,11 @@ const docTemplate = `{
                     "description": "Human-readable error message",
                     "type": "string",
                     "example": "category not found"
+                },
+                "request_id": {
+                    "description": "Request identifier for correlating with server logs",
+                    "type": "string",
+                    "example": "host/abc123-000001"
                 }
             }
         },
@@ -1823,6 +1828,12 @@ const docTemplate = `{
                 "message": {
                     "type": "string",
                     "example": "Please contact me via Telegram rather than calling"
+                },
+                "notified_at": {
+                    "description": "When the shop was notified about the order; null if notification has not succeeded yet",
+                    "type": "string",
+                    "format": "date-time",
+                    "x-nullable": true
                 },
                 "phone": {
                     "type": "string",

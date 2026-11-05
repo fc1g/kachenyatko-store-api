@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/fc1g/kachenyatko-store-api/internal/database/sqlc"
 	"github.com/fc1g/kachenyatko-store-api/internal/httpx"
 	"github.com/google/uuid"
 )
@@ -16,12 +15,12 @@ const (
 )
 
 type service interface {
-	Create(ctx context.Context, toyID *uuid.UUID, input createOrderInput) (sqlc.Order, error)
+	Create(ctx context.Context, toyID *uuid.UUID, input createOrderInput) (order, error)
 	List(ctx context.Context, filter orderFilter, limit, offset int32) (orderPage, error)
 	ListCustom(ctx context.Context, filter orderFilter, limit, offset int32) (orderPage, error)
 	ListByToy(ctx context.Context, toyID uuid.UUID, filter orderFilter, limit, offset int32) (orderPage, error)
-	Get(ctx context.Context, id uuid.UUID) (sqlc.Order, error)
-	UpdateStatus(ctx context.Context, id uuid.UUID, input updateOrderInput) (sqlc.Order, error)
+	Get(ctx context.Context, id uuid.UUID) (order, error)
+	UpdateStatus(ctx context.Context, id uuid.UUID, input updateOrderInput) (order, error)
 }
 
 type Handler struct {

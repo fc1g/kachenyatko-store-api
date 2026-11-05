@@ -85,7 +85,8 @@ RETURNING
   details,
   status,
   created_at,
-  updated_at
+  updated_at,
+  notified_at
 `
 
 type CreateOrderParams struct {
@@ -112,6 +113,7 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.NotifiedAt,
 	)
 	return i, err
 }
@@ -125,7 +127,8 @@ SELECT
   details,
   status,
   created_at,
-  updated_at
+  updated_at,
+  notified_at
 FROM
   orders
 WHERE
@@ -144,6 +147,7 @@ func (q *Queries) GetOrder(ctx context.Context, id uuid.UUID) (Order, error) {
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.NotifiedAt,
 	)
 	return i, err
 }
@@ -157,7 +161,8 @@ SELECT
   details,
   status,
   created_at,
-  updated_at
+  updated_at,
+  notified_at
 FROM
   orders
 WHERE
@@ -196,6 +201,7 @@ func (q *Queries) ListCustomOrders(ctx context.Context, arg ListCustomOrdersPara
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.NotifiedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -216,7 +222,8 @@ SELECT
   details,
   status,
   created_at,
-  updated_at
+  updated_at,
+  notified_at
 FROM
   orders
 WHERE
@@ -252,6 +259,7 @@ func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.NotifiedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -272,7 +280,8 @@ SELECT
   details,
   status,
   created_at,
-  updated_at
+  updated_at,
+  notified_at
 FROM
   orders
 WHERE
@@ -317,6 +326,7 @@ func (q *Queries) ListOrdersByToyID(ctx context.Context, arg ListOrdersByToyIDPa
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.NotifiedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -326,6 +336,73 @@ func (q *Queries) ListOrdersByToyID(ctx context.Context, arg ListOrdersByToyIDPa
 		return nil, err
 	}
 	return items, nil
+}
+
+const listStaleUnnotifiedOrderIDs = `-- name: ListStaleUnnotifiedOrderIDs :many
+SELECT
+  id
+FROM
+  orders
+WHERE
+  notified_at IS NULL
+  AND status <> 'closed'
+  AND created_at < NOW() - INTERVAL '1 minute'
+`
+
+func (q *Queries) ListStaleUnnotifiedOrderIDs(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listStaleUnnotifiedOrderIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []uuid.UUID{}
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markAsNotified = `-- name: MarkAsNotified :execrows
+UPDATE
+  orders
+SET
+  notified_at = NOW()
+WHERE
+  id = $1
+  AND notified_at IS NULL
+`
+
+func (q *Queries) MarkAsNotified(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, markAsNotified, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const markAsNotifiedByIDs = `-- name: MarkAsNotifiedByIDs :execrows
+UPDATE
+  orders
+SET
+  notified_at = NOW()
+WHERE
+  id = ANY($1::uuid[])
+  AND notified_at IS NULL
+`
+
+func (q *Queries) MarkAsNotifiedByIDs(ctx context.Context, orderIds []uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, markAsNotifiedByIDs, orderIds)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateOrderStatus = `-- name: UpdateOrderStatus :one
@@ -344,7 +421,8 @@ RETURNING
   details,
   status,
   created_at,
-  updated_at
+  updated_at,
+  notified_at
 `
 
 type UpdateOrderStatusParams struct {
@@ -364,6 +442,7 @@ func (q *Queries) UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusPa
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.NotifiedAt,
 	)
 	return i, err
 }
