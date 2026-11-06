@@ -16,6 +16,8 @@ type tokenVerifier interface {
 func RequireAuth(v tokenVerifier) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "no-store")
+
 			cookie, err := r.Cookie(AccessTokenCookie)
 			if err != nil {
 				httpx.WriteError(w, r, apperr.Unauthorized("authentication required", err))
