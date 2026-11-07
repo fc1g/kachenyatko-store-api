@@ -2,9 +2,11 @@
 
 **/.DS_Store
 tmp
-/build
 
 .agents
 skills-lock.json
 
 private.pem
+
+build/server
+build/create-admin
