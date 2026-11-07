@@ -64,6 +64,10 @@ func run() error {
 		Email:    email,
 		Password: password,
 	})
+	if database.IsUniqueViolation(err) {
+		log.Info().Str("email", email).Msg("admin already exists, skipping")
+		return nil
+	}
 	if err != nil {
 		return err
 	}
